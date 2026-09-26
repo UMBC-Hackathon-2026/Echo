@@ -8,6 +8,7 @@
  *   --runs N           runs per fixture (default 3)
  *   --only a,b,c       only these fixture ids
  *   --max-calls N      provider-call cap including retries (default 150)
+ *   --max-attempts N   provider calls per evaluation, 1 or 2 (default 1)
  *   --resume           reuse the latest reports/eval-<set>-*.json (skip completed runs)
  *   first positional   set: tuning | heldout (default tuning)
  * On a 429 / quota response it STOPS gracefully, saves partial results, and
@@ -36,6 +37,9 @@ const flag = (name: string): string | undefined => {
 const setName = args.find((a) => a === "tuning" || a === "heldout") ?? "tuning";
 const runs = Number(flag("runs") ?? 3);
 const maxCalls = Number(flag("max-calls") ?? 150);
+const maxAttempts = Number(flag("max-attempts") ?? 1);
+if (![1, 2].includes(maxAttempts)) throw new Error("--max-attempts must be 1 or 2");
+const model = process.env.GEMINI_MODEL;
 if (!Number.isSafeInteger(runs) || runs < 1 || !Number.isSafeInteger(maxCalls) || maxCalls < 0) {
   throw new Error("--runs must be a positive integer; --max-calls must be a nonnegative integer");
 }
@@ -50,7 +54,7 @@ interface Sample {
 const samples: Sample[] = [];
 const only = flag("only")?.split(",").map((s) => s.trim()).filter(Boolean);
 const resume = args.includes("--resume");
-const DELAY_MS = Math.max(0, Number(process.env.EVAL_DELAY_MS ?? 4000));
+const DELAY_MS = Math.max(0, Number(process.env.EVAL_DELAY_MS ?? 5000));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let fixtures = setName === "heldout" ? HELDOUT_FIXTURES : TUNING_FIXTURES;
@@ -68,6 +72,7 @@ if (resume) {
     if (latest) {
       const prev = JSON.parse(readFileSync(join("reports", latest), "utf8"));
       if (prev.promptVersion !== PROMPT_VERSION) throw new Error("Cannot resume a different prompt version");
+      if (prev.model !== model) throw new Error("Cannot resume a different model");
       previousCalls = prev.totalCalls ?? prev.calls ?? 0;
       samples.push(...(prev.samples ?? []));
       for (const p of prev.perFixture ?? []) {
@@ -91,7 +96,7 @@ function save(stopped: boolean, stopReason?: string) {
   const scored = perFixture.reduce((n, p) => n + p.scored, 0);
   const passAll = perFixture.reduce((n, p) => n + p.pass, 0);
   const file = `reports/eval-${setName}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
-  writeFileSync(file, JSON.stringify({ set: setName, promptVersion: PROMPT_VERSION, runs, maxCalls, calls, totalCalls: previousCalls + calls, stopped, stopReason, samples, perFixture, scored, passAll }, null, 2));
+  writeFileSync(file, JSON.stringify({ set: setName, promptVersion: PROMPT_VERSION, model, runs, maxCalls, maxAttempts, delayMs: DELAY_MS, calls, totalCalls: previousCalls + calls, stopped, stopReason, samples, perFixture, scored, passAll }, null, 2));
   return { file, scored, passAll, perFixture };
 }
 
@@ -99,7 +104,7 @@ async function main() {
   let first = true, stopped = false;
   let stopReason: string | undefined;
   const pending = [...agg.values()].reduce((n, a) => n + Math.max(0, runs - a.scored - a.errors), 0);
-  console.log(`Planned: ${pending} evaluations; at most ${Math.min(maxCalls, pending * 2)} Gemini calls including retries (cap=${maxCalls}).`);
+  console.log(`Planned: ${pending} evaluations; at most ${Math.min(maxCalls, pending * maxAttempts)} Gemini calls including retries (cap=${maxCalls}).`);
 
   outer: for (const fx of fixtures) {
     const a = agg.get(fx.id)!;
@@ -112,7 +117,7 @@ async function main() {
       }
       if (!first) await sleep(DELAY_MS);
       first = false;
-      const ev = new GeminiEvaluator({ maxAttempts: Math.min(2, maxCalls - calls) });
+      const ev = new GeminiEvaluator({ maxAttempts: Math.min(maxAttempts, maxCalls - calls) });
       const sessionId = `${fx.id}-${r}`;
       const res = await ev.evaluate({ sessionId, turns: toTurns(sessionId, fx.turns) });
       calls += res.attempts;
@@ -137,7 +142,7 @@ async function main() {
       if (sc.pass) a.pass++;
       if (sc.overCredit.length) a.over.push(...sc.overCredit);
       if (sc.underCredit.length) a.under.push(...sc.underCredit);
-      process.stdout.write(`\r[${calls}] ${fx.id} pass=${a.pass}/${a.scored}     `);
+      process.stdout.write(`\n[${calls}] ${fx.id} pass=${a.pass}/${a.scored}     `);
     }
   }
   process.stdout.write("\n");
