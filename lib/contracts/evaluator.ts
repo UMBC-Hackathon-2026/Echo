@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ConceptState } from "./concepts";
+import { ConceptId, ConceptState } from "./concepts";
 
 /**
  * Evaluator (Gemini) output contract. Copied from ARCHITECTURE_REVISED §2.
@@ -46,3 +46,25 @@ export const EvaluatorOutput = z
 export type EvaluatorOutput = z.infer<typeof EvaluatorOutput>;
 
 export type EvaluatorResolution = EvaluatorOutput["concepts"][number]["resolution"];
+
+/**
+ * Concept-array boundary schema: enforces that ids are the five known concepts
+ * and appear at most once. The full validation gate (Phase 2) also checks
+ * evidence provenance; this schema captures the id-shape guarantees the
+ * architecture requires (§2, gate rule 1).
+ */
+export const ValidatedConceptEntries = EvaluatorOutput.shape.concepts.superRefine(
+  (arr, ctx) => {
+    const seen = new Set<string>();
+    const known = ConceptId.options as readonly string[];
+    for (const c of arr) {
+      if (!known.includes(c.id)) {
+        ctx.addIssue({ code: "custom", message: `unknown concept id: ${c.id}` });
+      }
+      if (seen.has(c.id)) {
+        ctx.addIssue({ code: "custom", message: `duplicate concept id: ${c.id}` });
+      }
+      seen.add(c.id);
+    }
+  },
+);
