@@ -10,7 +10,7 @@ import { EvaluatorOutput, ValidatedConceptEntries, ConceptState, CONCEPT_IDS } f
  *
  * "Zod-valid" = EvaluatorOutput (shape/strictness/limits) AND ValidatedConceptEntries
  * (known, unique concept ids). For every sample except the ones JSON Schema
- * provably cannot express (id uniqueness), ajv and Zod must agree.
+ * cannot express (id uniqueness) or the provider rejects (maxItems), ajv and Zod must agree.
  */
 const ajv = new Ajv({ allErrors: true });
 const validate = ajv.compile(JSON.parse(JSON.stringify(RESPONSE_SCHEMA)));
@@ -43,9 +43,9 @@ describe("evaluator response schema — structural parity with Zod", () => {
     expect(s.properties.concepts.items.required).toEqual(["id", "state", "evidence", "conflicts", "resolution", "reason"]);
     expect(s.properties.misconception_reports.items.required).toEqual(["id", "stance", "evidence"]);
   });
-  it("max lengths and item caps match the contract", () => {
+  it("max lengths match; provider maxItems exception is explicit", () => {
     const ev = s.properties.concepts.items.properties.evidence;
-    expect(ev.maxItems).toBe(3);
+    expect(ev).not.toHaveProperty("maxItems");
     expect(ev.items.properties.quote.maxLength).toBe(300);
     expect(ev.items.properties.quote.minLength).toBe(1);
     expect(s.properties.concepts.items.properties.reason.maxLength).toBe(240);
@@ -72,7 +72,6 @@ describe("evaluator response schema — sample agreement with Zod", () => {
     ["invalid state", () => { const v = validSample(); (v.concepts[0] as Record<string, unknown>).state = "mastered"; return v; }],
     ["quote too long", () => { const v = validSample(); (v.concepts[2] as { evidence: unknown[] }).evidence = [{ turn_id: "t1", quote: "x".repeat(301) }]; (v.concepts[2] as Record<string, unknown>).state = "demonstrated"; return v; }],
     ["reason too long", () => { const v = validSample(); (v.concepts[0] as Record<string, unknown>).reason = "y".repeat(241); return v; }],
-    ["too many evidence", () => { const v = validSample(); (v.concepts[2] as { evidence: unknown[] }).evidence = Array.from({ length: 4 }, () => ({ turn_id: "t1", quote: "q" })); return v; }],
     ["unknown concept id", () => { const v = validSample(); (v.concepts[0] as Record<string, unknown>).id = "not_a_concept"; return v; }],
     ["bad turn_id pattern", () => { const v = validSample(); (v.concepts[1] as { evidence: unknown[] }).evidence = [{ turn_id: "x1", quote: "q" }]; (v.concepts[1] as Record<string, unknown>).state = "demonstrated"; return v; }],
   ];
@@ -84,7 +83,14 @@ describe("evaluator response schema — sample agreement with Zod", () => {
     });
   }
 
-  it("documents the one divergence JSON Schema cannot express (duplicate id)", () => {
+  it("keeps evidence caps enforced by Zod despite the provider maxItems exception", () => {
+    const v = validSample();
+    (v.concepts[2] as { evidence: unknown[] }).evidence = Array.from({ length: 4 }, () => ({ turn_id: "t1", quote: "q" }));
+    expect(ajvValid(v)).toBe(true);
+    expect(zodValid(v)).toBe(false);
+  });
+
+  it("documents the divergence JSON Schema cannot express (duplicate id)", () => {
     const v = validSample();
     v.concepts[1] = concept("base_case"); // duplicate of concepts[2]
     expect(ajvValid(v)).toBe(true); // JSON Schema can't require id uniqueness
