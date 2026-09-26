@@ -9,7 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check:content": "tsx scripts/check-content.ts",
+    "check:content": "node --conditions=react-server --import tsx scripts/check-content.ts",
     "check:bundle": "tsx scripts/check-bundle.ts",
     "verify": "npm run lint && npm run typecheck && npm run test && npm run check:content && npm run build && npm run check:bundle"
   },
@@ -30,6 +30,7 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
+    "vite": "^8.3.1",
     "vitest": "^5.0.2"
   }
 }

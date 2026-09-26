@@ -6,6 +6,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./", import.meta.url)),
+      // `import 'server-only'` throws under its default export; in tests resolve
+      // it to the empty (react-server) module so content can be imported.
+      "server-only": fileURLToPath(
+        new URL("./node_modules/server-only/empty.js", import.meta.url),
+      ),
     },
   },
   test: {
