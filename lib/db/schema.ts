@@ -106,7 +106,7 @@ export const learningRecords = pgTable(
       name: "learning_records_source_message_fk",
       columns: [t.sourceMessageId, t.sessionId],
       foreignColumns: [messages.id, messages.sessionId],
-    }),
+    }).onDelete("cascade"),
   ],
 );
 
@@ -129,7 +129,7 @@ export const misconceptionEvents = pgTable(
       name: "misconception_events_record_fk",
       columns: [t.learningRecordId, t.sessionId],
       foreignColumns: [learningRecords.id, learningRecords.sessionId],
-    }),
+    }).onDelete("cascade"),
   ],
 );
 
@@ -159,7 +159,7 @@ export const assessmentAttempts = pgTable(
       name: "attempts_record_fk",
       columns: [t.learningRecordId, t.sessionId],
       foreignColumns: [learningRecords.id, learningRecords.sessionId],
-    }),
+    }).onDelete("cascade"),
   ],
 );
 
