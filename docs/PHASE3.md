@@ -168,3 +168,64 @@ Live Gemini is quota-blocked, so run this once quota resets:
 4. **Double-click Send** on a new explanation → only one student turn is created (Send disables while pending; the idempotency key is the backstop).
 5. Click **Assess my learner** → answers reveal one at a time; the termination question is `misconception`/`partial` with `base_case` blocking. Click a concept → its evidence span highlights inside the exact turn; click a question → only its blocking concepts highlight.
 6. To see the failure path, run dev with a forced-failure flag or an invalid `GEMINI_API_KEY`: the student turn shows *Evaluation failed* with a **Retry** button, and **Assess** is disabled until it succeeds.
+
+## Phase 3 closeout — 2026-09-26 (in progress)
+
+- Started at local `main` `8fc827d`; fetched current main by HTTPS after SSH
+  authentication failed. PR #5 is merged at `698f2d1`; closeout branch is
+  `chore/phase-3-closeout`. Incoming work is the expected Phase 3 implementation
+  (a: consistent with the handoff; b: implementation details not specified there).
+  No conflicting/out-of-scope (c)/(d) changes found. Teammate `e58243d` adds only
+  `ARCHITECTURE.txt` to `.gitignore` and is preserved.
+- No repository `SKILL.md` or `skills.md` found; no skill applied. Read the
+  installed Next.js installation/environment guides before edits.
+- Installed lockfile dependencies with `npm ci`. Initial database URLs connected
+  but had no app schema. No migrations were applied by this session; after the
+  user updated the URLs, both schema/migration history and `check:env` passed.
+  Baseline `verify` passed: 387 tests, production build, content/secrets/bundle.
+- Paid-tier connectivity: success, `gemini-3.8-flash`, 3,842 ms; one call.
+- `eval:live --max-calls N` defaults to 150 and counts provider attempts, including
+  retries. It saves partial results and exits cleanly at the cap. Reports include
+  invocation calls, cumulative resume calls, prompt version, and per-run states.
+  A zero-call run and seven mocked adapter cap tests passed.
+- The enriched response schema returned HTTP 400 for all three initial tuning
+  calls. Bounded diagnostic calls isolated `maxItems`: omitting that keyword
+  produced an accepted response passing Zod and the validator. Removing only
+  `pattern`, `minLength`, `maxLength`, `minItems`, or temperature did not resolve
+  the 400. Several diagnostics returned transient 503/high-demand or timeout.
+  The narrower top-level-only maxItems probe was inconclusive (503).
+- **Provider-schema exception:** only `maxItems` is removed from RESPONSE_SCHEMA.
+  Zod/validator item limits are unchanged. Ajv parity tests explicitly document
+  that the provider schema accepts an oversized evidence array that Zod rejects;
+  all other parity checks and the existing duplicate-ID caveat remain. All 15
+  schema tests pass. No prompt guidance or frozen content has changed yet.
+- Corrected-schema recheck: `tune.demo.cycle1` accepted, Zod PASS, validator PASS;
+  `tune.demo.cycle2` HTTP 503; `tune.base.01` HTTP 429. The required three-output
+  schema gate is therefore **BLOCKED**, not PASS. Stopped live requests at 429.
+- Calls this session: paid check 1 + initial schema 3 + diagnostic calls 15 +
+  corrected-schema recheck 3 = **22**. All these calls disabled SDK retries.
+  The runner's zero-cap test made zero calls. No model-listing calls were made.
+
+| Tuning version | Runs | Pass rate | Over-credit | Under-credit | Decision |
+| --- | --- | --- | --- | --- | --- |
+| p1 | Not run | N/A | N/A | N/A | Unchanged; no new freeze decision |
+| p2 | Not created | N/A | N/A | N/A | Refinement deferred until schema gate passes |
+
+Held-out ×3 was **not run**; no held-out outputs have been observed in this
+closeout. Demo targets are **NOT MET (unverified due to blocked execution)**,
+not an observed accuracy failure. There are no held-out failing states to report.
+Do not infer zero over-/under-credit from unexecuted tests.
+
+Service/HTTP live smoke and browser checklist are deferred after the 429; no
+smoke/browser sessions were created and no server was left running. Production
+build passed as part of baseline verify. Phase 4 has not started.
+
+Next action: retry the corrected-schema three-call check when provider capacity
+and rate limits allow it, then perform the originally authorized p1/p2 tuning,
+freeze commit, held-out ×3, smoke and browser checks in that order. If 429
+persists, inspect the project's Gemini API limits/billing in Google AI Studio;
+the successful paid-tier call proves key/model connectivity, not unrestricted
+capacity. Do not rotate keys, weaken validation, or tune using held-out results.
+
+Final regression: `npm run verify` PASS (394 tests), `npm run check:env` PASS;
+`docs/source` and `lib/content` unchanged. No secrets printed or committed.

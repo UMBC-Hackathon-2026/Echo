@@ -282,3 +282,23 @@ Gate results:
 
 **Deviations:** complete route takes `sessionId` in the body (per-session owner
 cookie); enriched response schema needs live re-check when quota resets.
+
+### 2026-09-26 — Phase 3 closeout retry (provider blocked)
+
+Updated database URLs resolved the missing-schema blocker. Dependencies were
+synchronized with `npm ci`; no migrations or credential edits were performed.
+See PHASE3.md for provider-schema diagnosis, call accounting and continuation.
+
+| Gate | Result |
+| --- | --- |
+| verify + check:env | Final PASS: 394 tests and all build/content/secrets/bundle checks; check:env PASS against both updated DBs |
+| docs/source + lib/content unchanged | PASS |
+| Live schema ×3 | BLOCKED: corrected schema has 1 Zod/validator PASS, then 503 and 429 |
+| Tuning p1 vs p2 / chosen prompt | Not run; p1 unchanged; p2 not created |
+| Held-out ×3 / demo targets | Not run; NOT MET (unverified) |
+| smoke:service + smoke:http | Not run after provider rate limit |
+| Browser checklist | Pending; no browser session created |
+| Total Gemini calls | **22 / 300**, including all diagnostics and failed requests |
+
+Evaluator demo readiness is **not established**. No held-out results were
+observed and no prompt refinement was made. Phase 4 remains out of scope.
