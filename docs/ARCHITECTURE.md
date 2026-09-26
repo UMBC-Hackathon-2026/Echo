@@ -3,8 +3,8 @@
 This is the working architecture adapted to the actual repository layout. The
 authoritative sources are in [`docs/source/`](./source): **`HANDOFF_REVIEW.md`**
 (the team review — wins on any conflict) and **`ARCHITECTURE_REVISED.md`** (the
-revised design). This file maps that design to real paths and records what Phase
-1 actually built. Section numbers below refer to `ARCHITECTURE_REVISED.md`.
+revised design). This file maps that design to real paths and records what Phases
+1 and 2 actually built. Section numbers below refer to `ARCHITECTURE_REVISED.md`.
 
 ## Product in one line
 
@@ -20,12 +20,14 @@ The learner only says what the validated teaching record allows. Gemini is used
 learner "says" and every score is computed in code from the record and the
 frozen forms — no LLM is on the assessment path (§1, §2).
 
-## Repository layout (Phase 1)
+## Repository layout (Phases 1–2)
 
 | Path | Role | Source § |
 | --- | --- | --- |
 | `lib/contracts/` | Zod schemas + TS types + ports (evaluator, repository, clock/id). Client-safe. | §2, §6 |
 | `lib/content/recursion/` | `server-only` rubric with 15 authored examples, seeded misconception, frozen forms A/B, `form_version`. | §5 |
+| `lib/evaluator/` | Pure schema/provenance validation and contradiction caps. | §2 |
+| `lib/learner/` | Pure gate, composer, scoring, probe selection, immutable snapshots, and misconception events. | §2 |
 | `lib/content/validate.ts` | Pure content validator (the six rules + structural checks). | §5 |
 | `scripts/check-content.ts` | Runs the validator over the frozen content; fails CI on any violation. | §5 |
 | `scripts/check-bundle.ts` | Post-build scan: no answer keys, secrets, or dev mocks in the client bundle. | §4 |
@@ -47,7 +49,7 @@ frozen forms — no LLM is on the assessment path (§1, §2).
 3. **Review / reteach / compare** — server-enforced phase transitions; earlier
    attempts and records never change (§4).
 
-## Contracts that Phase 2+ depend on
+## Contracts used by Phase 2 and later phases
 
 - `ConceptId` (the only five), `ConceptState` (`not_taught` | `partially_taught`
   | `demonstrated`).
@@ -75,3 +77,13 @@ Every authored example and question fragment is itemized in
 [`AUTHORED_CONTENT.md`](./AUTHORED_CONTENT.md). The corrected content freeze is
 `1.0.1+fd846dc9f057`; the hash includes both forms, the complete rubric, and
 seeded-misconception metadata. Authoritative source files remain unchanged.
+
+
+## Phase 2 implementation
+
+The deterministic core and evidence validator are implemented and tested as pure
+server-side functions. `GATE_VERSION` and `VALIDATOR_VERSION` are `1.0.0`.
+See [`PHASE2.md`](./PHASE2.md) for entry points, UTF-16 span conventions,
+student-versus-seeded misconception storage, event payloads, authored decisions,
+and Phase 3 integration requirements. The scaffold UI remains disconnected from
+the core until owner-scoped persistence and live evaluation are implemented.
