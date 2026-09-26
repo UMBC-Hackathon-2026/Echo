@@ -252,3 +252,33 @@ Gate results this session:
 **Deviations:** success field named `evaluation` (not `record`); composite FKs
 ON DELETE CASCADE (§3 left ON DELETE unspecified); model is `gemini-3.8-flash`
 because `gemini-2.5-flash` is 404 for new users on this project.
+
+### 2026-09-26 — Phase 3c (routes, frontend, live)
+
+Branch `feat/phase-3c-routes-ui` from `main` @ `d53d77f` (PR #4 merged). Baseline
+`verify` + `check:env` **PASSED**. No teammate commits since the last report.
+
+- **STEP 1:** `eval-live.ts` gains `--runs/--only/--resume`, a call counter, and
+  a graceful 429/quota stop. Held-out ×3 and `smoke:service` **BLOCKED (429 quota)**.
+  `smaller_subproblem` under-credit cause = the prompt's few-shot bar (a prompt
+  fix, deferred pending live measurement; validation not loosened). Prompt stays `p1`.
+- **STEP 2:** enriched `RESPONSE_SCHEMA` to mirror the Zod contract + ajv parity
+  test (15 cases). `z.toJSONSchema` unusable here (module-scope `_idmap` error).
+- **D. Routes:** six owner-scoped Node handlers; 7 route tests (gates 4–10).
+- **E. Frontend:** API client, session binding, truthful states, cross-highlighting,
+  home start action; dev mocks behind a flag; bundle scan still clean.
+
+Gate results:
+
+| # | Check | Result | Notes |
+| --- | --- | --- | --- |
+| 1 | `npm run verify` | recorded in report | lint 0 warnings, typecheck, tests, content, secrets, build, bundle |
+| 2 | docs/source + lib/content unchanged | **PASS** | git diff empty |
+| 3 | schema + 3b service tests | **PASS** | on test DB |
+| 4–10 | route tests (constructed Requests, test DB) | **PASS** | 7 tests: ownership, idempotency, conflicts, limits, leakage, cookie flags, failure/retry |
+| 11 | held-out ×3 / smoke:service | **BLOCKED (429 quota)** | scripts ready; `--resume` supported |
+| 12 | `smoke:http` | **BLOCKED (429 quota)** | script ready (`npm run smoke:http`) |
+| 13 | browser | **manual checklist** in PHASE3.md (quota-blocked) |
+
+**Deviations:** complete route takes `sessionId` in the body (per-session owner
+cookie); enriched response schema needs live re-check when quota resets.
