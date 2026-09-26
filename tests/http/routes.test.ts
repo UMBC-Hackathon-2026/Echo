@@ -9,7 +9,7 @@ import {
 import { buildOwnerSetCookie } from "@/lib/http/cookies";
 import { resetRateLimits } from "@/lib/http/rate-limit";
 import { FakeEvaluator } from "@/tests/helpers/fake-evaluator";
-import { hasTestDb, makeTestDb, truncateAll, okEvaluation } from "@/tests/helpers/test-db";
+import { hasTestDb, makeTestDb, okEvaluation } from "@/tests/helpers/test-db";
 
 function req(url: string, opts: { method?: string; cookie?: string; idem?: string; ip?: string; body?: unknown } = {}): Request {
   const headers = new Headers();
@@ -25,7 +25,7 @@ describe.skipIf(!hasTestDb)("api routes (DATABASE_URL_TEST)", () => {
   let db: ReturnType<typeof makeTestDb>["db"];
   beforeAll(() => { ({ pool, db } = makeTestDb()); });
   afterAll(async () => { await pool.end().catch(() => {}); });
-  beforeEach(async () => { await truncateAll(pool); resetRateLimits(); });
+  beforeEach(() => { resetRateLimits(); }); // no truncate: fresh UUIDs isolate tests
 
   const svc = (fake: FakeEvaluator): SessionService => createSessionService({ evaluator: fake, db });
 
@@ -43,12 +43,13 @@ describe.skipIf(!hasTestDb)("api routes (DATABASE_URL_TEST)", () => {
     expect(sc).toMatch(/HttpOnly/);
     expect(sc).toMatch(/SameSite=Lax/);
     expect(sc).not.toMatch(/Secure/); // test env
-    const prev = process.env.NODE_ENV;
+    const env = process.env as Record<string, string | undefined>;
+    const prev = env.NODE_ENV;
     try {
-      process.env.NODE_ENV = "production";
+      env.NODE_ENV = "production";
       expect(buildOwnerSetCookie("s", "tok")).toMatch(/Secure/);
     } finally {
-      process.env.NODE_ENV = prev;
+      env.NODE_ENV = prev;
     }
     expect(res.headers.get("cache-control")).toBe("no-store");
   });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import type { Pool } from "pg";
@@ -6,14 +6,15 @@ import * as schema from "@/lib/db/schema";
 import { createSessionService, type SessionService } from "@/lib/session/service";
 import { ConflictError, IdempotencyMismatchError, NotFoundError } from "@/lib/session/errors";
 import { FakeEvaluator } from "@/tests/helpers/fake-evaluator";
-import { hasTestDb, makeTestDb, truncateAll, okEvaluation } from "@/tests/helpers/test-db";
+import { hasTestDb, makeTestDb, okEvaluation } from "@/tests/helpers/test-db";
 
 describe.skipIf(!hasTestDb)("session service (DATABASE_URL_TEST)", () => {
   let pool: Pool;
   let db: ReturnType<typeof makeTestDb>["db"];
   beforeAll(() => { ({ pool, db } = makeTestDb()); });
   afterAll(async () => { await pool.end().catch(() => {}); });
-  beforeEach(async () => { await truncateAll(pool); });
+  // No global truncate: each test uses fresh session UUIDs, so tests self-isolate
+  // and cannot race the parallel routes suite on the shared test DB.
 
   const svc = (fake: FakeEvaluator): SessionService => createSessionService({ evaluator: fake, db });
 
