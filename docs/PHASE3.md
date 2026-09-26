@@ -263,3 +263,151 @@ Schema ×3 remains blocked; p1 is unchanged, p2 is not created, held-out remains
 unobserved, and smoke/browser checks remain pending. No additional code changes
 were needed for this diagnostic retry. The last full verify remains PASS with
 394 tests; no Phase 4 work has started.
+
+
+## Closeout recheck — 2026-09-26, 23:00–23:23 UTC
+
+**Verdict: NOT DEMO-READY. Phase 3 closeout remains incomplete; Phase 4 was not started.**
+
+### Starting state and teammate changes
+
+Fetched all remotes with pruning. PR #5 is merged into `main` at `698f2d1`.
+The clean local closeout branch was at `14eb1e0`, while the remote closeout branch
+had additional teammate work. Preserved that divergent local commit on
+`chore/phase-3-closeout-local-14eb1e0`; continued the existing remote
+`chore/phase-3-closeout` at `da84e7e`, which already contains updated main.
+PR #6 already exists and is the closeout PR; its base is main.
+
+| Incoming teammate commit | Classification | Review |
+| --- | --- | --- |
+| `e58243d` | b — unspecified implementation detail | Ignore local ARCHITECTURE.txt |
+| `22ec592` | a — consistent with closeout | Provider-attempt cap, including retries; report metadata; mocked tests |
+| `1a71c02` | a — explicitly permitted schema adjustment | Omit only provider-rejected maxItems; retain all Zod caps and document parity exception |
+| `5c9dd06` | a — consistent documentation | Prior live results and provider blockers |
+| `da84e7e` | a — consistent documentation | Sanitized daily-free-tier quota finding |
+
+No c (conflicting) or d (out-of-scope) incoming changes found. No source or frozen
+content changes. No repository `SKILL.md` or `skills.md` files were found, including
+hidden paths outside dependencies/build outputs. Read AGENTS, the reviewed handoff,
+PHASE3, BUILD_PLAN, and installed Next.js security guidance. Consulted the bundled
+computer-use skill; no native Windows automation skill workflow was applied.
+Browser checks used the available CUA browser API.
+
+### Baseline and call cap
+
+`npm run verify` PASS: lint/typecheck, **394 tests in 16 files**, content validation,
+secret scan, production build, and bundle scan (14 client files).
+`npm run check:env` PASS, including both distinct PostgreSQL 18 TLS connections.
+The existing `--max-calls` default of 150 and retry-inclusive counter were retained;
+its seven mocked adapter-cap tests passed. No replacement cap implementation needed.
+Every live run printed its planned count. No secrets were printed or committed.
+
+### Connectivity and schema
+
+- Connectivity: **SUCCESS**, `gemini-3.8-flash`, **4,270 ms**, one request.
+  A successful request proves connectivity, not the account's billing tier.
+- Initial schema attempt: `tune.demo.cycle1`, HTTP 429, 335 ms; stopped immediately.
+- Paced schema retry: `tune.demo.cycle1`, **schema accepted, Zod PASS, validator PASS**,
+  4,938 ms; one request.
+- Remaining-fixture run: `tune.demo.cycle2`, HTTP 429, 348 ms; stopped before the
+  next fixture. Structured metadata explicitly reported
+  `generativelanguage.googleapis.com/generate_content_free_tier_requests`,
+  `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, limit **20/day**.
+- Required three-successful-output schema gate: **BLOCKED, 1/3 successful outputs**.
+  Three schema requests were made, of which two were rate-limited. No further
+  schema keyword was removed; the teammate's maxItems exception remains unchanged.
+
+Neither key nor model was rotated. Inherited GEMINI_API_KEY/GEMINI_MODEL overrides
+were absent. The later HTTP smoke did succeed using the existing configuration,
+so provider access was intermittent; that success does not erase the explicit
+free-tier quota errors or establish reliable paid-tier capacity.
+
+### Tuning and held-out
+
+| Prompt | Required tuning runs | Executed | Pass rate | Over-credit | Under-credit | Decision |
+| --- | --- | --- | --- | --- | --- | --- |
+| p1 | Twice | Not run | N/A | N/A | N/A | Unchanged; no new freeze decision |
+| p2 | Twice | Not authored/run | N/A | N/A | N/A | Deferred because schema gate is incomplete |
+
+No guidance or validation was changed. In the successful HTTP smoke, the probe
+was `smaller_subproblem` and P1 included that concept among its blockers, consistent
+with the existing p1 under-credit finding. This is a smoke observation, not a
+substitute for the required tuning comparison.
+
+| Held-out scope | Required runs | Executed | Pass rate | Over-credit | Under-credit |
+| --- | --- | --- | --- | --- | --- |
+| Every held-out fixture | 3 each | Not run | N/A | N/A | N/A |
+
+No held-out outputs were inspected. **Demo targets: NOT MET (unverified).**
+There are no held-out expected/returned mismatches to report because the suite was
+not executed. Do not treat missing measurements as zero errors. The only permitted
+prompt refinement remains pending; no tuning on held-out data occurred.
+
+### Smoke and browser results
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| `npm run smoke:service` | FAIL/BLOCKED | Live teaching marked failed after 2 provider attempts; script cleaned up its session |
+| `npm run build` | PASS | Fresh production build before starting HTTP server |
+| `npm start -- --port 3143` | PASS | Isolated production server started; stopped after checks |
+| `npm run smoke:http` | PASS | Created session, evaluated teaching, base_case not_taught, learner probe, P1 misconception with base_case blocking, completed/reloaded identically, duplicate attempt replay 200, cleaned up |
+| Disposable session cleanup | PASS | Both smoke sessions and browser-test session absent afterward |
+
+Important runner limitation: smoke:service currently exits zero on a BLOCKED
+evaluation; its printed failure is recorded as failure here. Smoke scripts also
+print several checks rather than asserting all expected values. Do not use exit
+code alone as evidence of readiness.
+
+Browser checklist was attempted by the agent in the production app:
+
+1. **PASS:** Start teaching recursion created a session and navigated to its page.
+2. **FAIL:** Before any teaching, the textarea and Send remained disabled with
+   `Evaluating…`; the record remained v0. No browser Gemini calls were made.
+3. **Partial:** Refresh restored the initial learner/record but reproduced the
+   stuck state; successful-teaching hydration could not be exercised.
+4. **Blocked:** Double-click Send cannot be tested while input is disabled.
+5. **Blocked:** Assessment/reveal/highlighting cannot be reached through this UI.
+6. **Blocked:** Failed-teaching/Retry UI cannot be reached; no invalid credential
+   was installed merely to test an already blocked control.
+
+Code inspection identifies a likely hydration loop: Boot's effect in
+`app/session/[id]/page.tsx` depends on `[actions]`, while `SessionProvider` in
+`hooks/useSession.ts` recreates `actions` on every render. Hydration dispatches
+another render and restarts the effect, repeatedly setting pending.teach.
+Observed disabled controls persisted across refresh; database verification found
+zero student turns in that disposable browser session. Screenshot captured locally.
+No UI code was modified in this closeout-only session.
+
+### Spend ledger — this session
+
+| Operation | Actual Gemini requests |
+| --- | ---: |
+| Connectivity | 1 |
+| Schema attempts/recheck | 3 |
+| Service smoke (including retry) | 2 |
+| HTTP smoke | 1 |
+| Browser | 0 |
+| Tuning / held-out | 0 |
+| **Total** | **7 / 300** |
+
+Direct schema/connectivity calls disabled SDK retries. Smoke/server requests were
+counted at the outbound generateContent fetch boundary by a temporary local
+counter, with a hard six-request reservation beyond the first four calls. Three
+of those reserved calls were used. The counter stored no request data or secrets.
+Prior sessions' usage remains separately documented above; no old result file was
+resumed or included as a new measurement. Server stopped and temporary browser tab
+closed; no smoke/browser sessions remain.
+
+### Proposed next actions requiring a scope decision
+
+1. Confirm the project owning the configured key actually has paid-tier access;
+   this run received explicit free-tier daily-limit errors despite intermittent
+   successful requests. Do not infer a tier upgrade from connectivity alone.
+2. Authorize a focused Phase 3 hydration fix: stabilize the hydrate callback/effect
+   so it runs on session identity changes, with a regression test for a fresh
+   session becoming usable. This is a Phase 3 defect, not Phase 4 feature work.
+3. Once access is reliable, finish schema x3, run p1 tuning twice, measure the one
+   allowed smaller_subproblem refinement, freeze/commit the selected prompt,
+   then run held-out x3. No additional concept guidance or validator changes.
+4. Consider making smoke scripts assert their checks and exit nonzero on BLOCKED
+   evaluation so automation cannot misreport readiness.

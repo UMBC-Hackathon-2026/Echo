@@ -309,3 +309,29 @@ Stopped after one call; slower pacing cannot replenish a daily quota. The key
 comes from `.env.local`. Paid-tier status must be verified for that key's owning
 project before continuing. Previous connectivity success did not verify billing.
 See PHASE3.md for the exact quota identifier and continuation guidance.
+
+
+### 2026-09-26 — Closeout recheck on latest teammate branch
+
+Started from remote `chore/phase-3-closeout` @ `da84e7e`, based on merged PR #5
+(`main` @ `698f2d1`). Preserved divergent local `14eb1e0` on a backup branch.
+All five incoming teammate commits classified a/b; no c/d flags. Details and
+per-step evidence are in `PHASE3.md`, "Closeout recheck".
+
+| Gate | Result |
+| --- | --- |
+| 1. `npm run verify` / `npm run check:env` | PASS, 394 tests / both database TLS connections |
+| 2. docs/source and lib/content unchanged | PASS |
+| 3. Three-output live schema check | BLOCKED, only one accepted/Zod-valid/validator-valid result; other schema requests HTTP 429 |
+| 4. p1 vs p2 tuning and prompt selection | NOT RUN, p1 unchanged; p2 not authored; no new freeze decision |
+| 5. Held-out x3 demo targets | NOT MET — unverified, suite not run; no held-out outputs observed |
+| 6. Service / HTTP smoke | Service FAIL/BLOCKED; HTTP PASS; both cleaned up |
+| 7. Session Gemini spend | 7 actual requests including retries; below 300 |
+
+Additional browser blocker: fresh session stuck on Evaluating with input disabled;
+refresh reproduces it. Likely unstable actions dependency causing repeated
+hydration. Browser checklist attempted, but steps requiring teaching are blocked.
+No UI or prompt fix was made outside the permitted measured refinement. Production
+server stopped and all three test sessions removed. **Phase 3 is not demo-ready**;
+Phase 4 remains untouched. The schema parity exception and call cap from teammate
+commits were preserved. Tuning/held-out counts are N/A, not zero error rates.
