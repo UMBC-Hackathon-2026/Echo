@@ -219,3 +219,36 @@ Done this session (STEP 0–2 + Task A):
 Regression gate (`npm run verify`): **PASS** — lint (0 warnings), typecheck,
 **340 tests (8 files)**, check:content, check:secrets, build, check:bundle.
 `docs/source` and `lib/content` unchanged this session.
+
+### 2026-09-26 — Phase 3b (Tasks C, F, B)
+
+Branch `feat/phase-3b-evaluator-repo` from `main` @ `522cc5e` (PR #3 merged).
+Baseline `verify` + `check:env` **PASSED**. No new teammate commits since `8fc827d`.
+
+- **C. Gemini adapter:** `lib/evaluator/gemini.ts` (@google/genai, structured
+  output, 20 s/≤2-attempt budget, SDK retries off, validator pass-through);
+  budget runner + request-separation + fake-isolation tests. `GEMINI_MODEL`
+  chosen and written to `.env.local` (see PHASE3.md).
+- **F. Fixtures + live:** `fixtures/evaluator/{tuning,heldout}` + conservative
+  scorer + `scripts/eval-live.ts`. Prompt frozen at `p1`. **Held-out live ×3
+  BLOCKED by free-tier quota** (partial tuning evidence: 5/6 passed, 0 base_case
+  over-credits before exhaustion).
+- **B. Repository + service:** `lib/db/repository.ts`, `lib/session/{service,dto,errors}.ts`.
+  Two-phase teaching writes, idempotency, ownership (constant-time), phase
+  transitions, record pinning, completion. Composite record/message FKs made
+  ON DELETE CASCADE for cleanup (migration `0001`).
+
+Gate results this session:
+
+| # | Check | Result | Notes |
+| --- | --- | --- | --- |
+| 1 | `npm run verify` | recorded in report | lint 0 warnings, typecheck, tests, content, secrets, build, bundle |
+| 2 | docs/source + lib/content unchanged | **PASS** | git diff empty |
+| 3 | Task A schema test | **PASS** | still green |
+| 4–12 | service integration tests (FakeEvaluator, test DB) | **PASS** | 13 tests: integrity, idempotency, concurrency, transitions, ownership, failure/retry, pinning, completion, DTO leakage |
+| 13 | `eval:live` held-out ×3 | **BLOCKED (quota)** | adapter proven live; partial results in PHASE3.md |
+| 14 | `smoke:service` | **BLOCKED (quota)** | pipeline runs + cleans up; live teach 429 |
+
+**Deviations:** success field named `evaluation` (not `record`); composite FKs
+ON DELETE CASCADE (§3 left ON DELETE unspecified); model is `gemini-3.8-flash`
+because `gemini-2.5-flash` is 404 for new users on this project.

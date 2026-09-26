@@ -8,6 +8,13 @@
       "when": 1790452549057,
       "tag": "0000_spicy_moonstone",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790455216767,
+      "tag": "0001_sticky_patch",
+      "breakpoints": true
     }
   ]
 }

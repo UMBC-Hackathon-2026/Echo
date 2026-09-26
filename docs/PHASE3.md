@@ -44,23 +44,49 @@ items they satisfy.
   constraints and the partial index (gate item 6). CI runs it against a Postgres
   service container (no Tiger credentials).
 
-## Recommended GEMINI_MODEL
+## Gemini adapter (Task C)
 
-**Pending** — to be filled during Task C. The plan (per the task) is to list
-models once via `@google/genai`, record the list here, recommend a value (likely
-a current `gemini-2.5-flash`-class model for low latency + structured output),
-and read it from `GEMINI_MODEL` (currently blank in `.env.local`). Do not
-hardcode a production default.
+- **SDK:** `@google/genai` v2.24.0. Models listed with `ai.models.list()` — the
+  Flash-tier `generateContent` models included `gemini-2.5-flash`,
+  `gemini-2.5-flash-lite`, `gemini-flash-latest`, and several newer
+  `gemini-3.x/3.5/3.6+ flash` entries (full list via `npx tsx scripts/list-models.ts`).
+- **Chosen `GEMINI_MODEL=gemini-3.8-flash`.** The first pick, `gemini-2.5-flash`,
+  is listed but returns **404 "no longer available to new users"** on this
+  project and the API itself recommends `gemini-3.8-flash`; a direct call
+  confirmed `gemini-3.8-flash` works with structured output (~2.9 s). It is a
+  current Flash-tier model, read from `GEMINI_MODEL` (in `.env.local`, not
+  hardcoded). `gemini-flash-latest` also works but is an alias (drift risk).
+- **Structured-output config fields (SDK v2.24.0):** `responseMimeType:
+  "application/json"`, `responseJsonSchema` (schema mirrors the Zod
+  `EvaluatorOutput`; `z.toJSONSchema` errored on this build, so the schema is
+  hand-authored), plus `systemInstruction`, `temperature`, `abortSignal`.
+  SDK retries disabled with `httpOptions.retryOptions.attempts = 1`.
+- **Prompt version `p1`** (`lib/evaluator/prompt.ts`). Budget: 20 s / ≤2 attempts.
+  Result success field is `evaluation` (a validated evaluation), since the
+  service builds the versioned `LearningRecord` from it (see Deviations).
 
-## Remaining Phase 3 tasks (not done this session)
+## Prompt tuning and live accuracy (Task F)
+
+- **Prompt `p1` frozen.** Live tuning iterations were limited by the free-tier
+  Gemini quota (see below); no prompt change was made without measurement.
+- **Partial live evidence (tuning set, before quota exhaustion):** the adapter +
+  validator work end-to-end against live Gemini (7+ successful structured calls).
+  Of the fixtures that returned before rate-limiting, **5/6 passed, 0 over-credits,
+  0 base_case over-credits**; the one miss was an **under-credit** (`smaller_subproblem`
+  on `demo.cycle1`, the safe direction).
+- **Held-out ×3: BLOCKED — free-tier quota exhausted** ("429 You exceeded your
+  current quota") after ~80 calls this session. Re-run when quota resets:
+  `npm run eval:live -- heldout 3` (default 4 s spacing; raise with
+  `EVAL_DELAY_MS`). Demo-readiness targets (demo passes every run; no held-out
+  base_case over-credit) are **not yet fully verified** for this reason.
+
+## Remaining (Phase 3c — not this session)
 
 | Task | Summary | Gate items |
 | --- | --- | --- |
-| B. Repository | Two-phase teaching writes (tx1 pending turn + revision bump; Gemini with no tx open; tx2 record/events/probe iff still current; failure preserves text). One-transaction attempt creation via the Phase 2 gate; completion after count==expected. | 7, 8, 9, 12, 13, 14 |
-| C. Gemini adapter | `lib/evaluator/gemini.ts` with `@google/genai`, structured output from the Zod contract, 20 s/2-attempt budget with AbortSignal, Retry-After handling, SDK retries off, validator pass-through; `FakeEvaluator` for tests. | 8, 12, 16, 17 |
-| D. Routes | The six owner-scoped routes with cookie ownership (404), Idempotency-Key + expectedRevision, 409 on bad transition/revision, 422 on key reuse with a different body, input/turn caps, rate limiting, DTO gating. | 7–15 |
+| D. Routes | Six owner-scoped route handlers over the service: cookie ownership (404), Idempotency-Key + expectedRevision, 409/422, input/turn caps, rate limiting, DTO gating. | HTTP 7–15 |
 | E. Frontend | Replace dev mocks with the real API (mocks dev-only behind a flag), home creates a session, truthful states, real-span cross-highlighting. | 17, 18 |
-| F. Fixtures | `fixtures/evaluator/{tuning,heldout}` with the required cases; `scripts/eval-live.ts`; tune on tuning only. | 16 |
+| Live re-runs | `eval:live -- heldout 3` and `smoke:service` once Gemini quota resets. | 13, 14 |
 
 ## Manual browser checklist (gate item 18)
 
