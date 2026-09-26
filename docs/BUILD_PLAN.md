@@ -196,3 +196,26 @@ fallback, and original UTF-16 offsets. Provenance does not validate semantic tru
 live Gemini correctness and prompt adherence remain Phase 3 tests. The new functions
 are not yet wired into routes, persistence, or the scaffold UI. Phases 3–6 remain
 unchecked. GitHub CI runs the same gate on the Phase 2 pull request.
+
+### 2026-09-26 — Phase 3 (in progress: foundation)
+
+Branch `feat/phase-3-persistence` from `main` @ `8fc827d`. Baseline
+`npm run verify` **PASSED** before Phase 3 edits. See `PHASE3.md` for scope,
+the teammate-change classification, the recommended-model plan, and the remaining
+tasks (repository, Gemini adapter, routes, frontend, fixtures).
+
+Done this session (STEP 0–2 + Task A):
+
+- **STEP 1 secrets:** `scripts/check-secrets.ts` (in `verify` + CI) and a
+  `.githooks/pre-commit` hook; verified it blocks a staged fake credential;
+  `git ls-files` shows only `.env.example` among env files; none ever committed.
+- **STEP 2 env:** `scripts/check-env.ts` — every rule PASS against `.env.local`,
+  no values printed; both databases TLS-connect (Postgres 18, ~150 ms), distinct
+  host/db; `GEMINI_API_KEY` present; `GEMINI_MODEL` blank (allowed).
+- **Task A DB:** `lib/db/schema.ts` (§3), migration `0000_*` reviewed and applied
+  to `DATABASE_URL` and `DATABASE_URL_TEST`; pool client (max 5); db scripts;
+  `tests/db/schema.test.ts` (information_schema) — **PASS** (gate item 6).
+
+Regression gate (`npm run verify`): **PASS** — lint (0 warnings), typecheck,
+**340 tests (8 files)**, check:content, check:secrets, build, check:bundle.
+`docs/source` and `lib/content` unchanged this session.
