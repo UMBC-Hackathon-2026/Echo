@@ -64,7 +64,7 @@ export function updateMisconceptions(
       if (!before || turn <= priorTurn) continue;
       apply(key, report.id, "student", "resolved", report.evidence);
     } else {
-      if (before && turn === priorTurn) continue;
+      if (before && before.status === "active" && turn <= priorTurn) continue;
       apply(key, report.id, "student", "active", report.evidence);
     }
   }

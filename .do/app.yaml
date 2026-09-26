@@ -27,6 +27,8 @@ services:
       - key: GEMINI_API_KEY
         scope: RUN_TIME
         type: SECRET
+      - key: GEMINI_MODEL
+        scope: RUN_TIME
       - key: DATABASE_URL
         scope: RUN_TIME
         type: SECRET
