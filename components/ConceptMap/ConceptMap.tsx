@@ -1,9 +1,8 @@
 "use client";
 
 import { useSession, CONCEPT_ORDER } from "@/hooks/useSession";
-import type { ConceptState } from "@/lib/contracts";
+import type { ConceptId, ConceptState } from "@/lib/contracts";
 
-// Text label + icon (never color alone — §6 accessibility).
 const STATE_UI: Record<ConceptState, { label: string; icon: string }> = {
   not_taught: { label: "Not taught", icon: "○" },
   partially_taught: { label: "Partial", icon: "◐" },
@@ -18,13 +17,14 @@ const CONCEPT_LABEL: Record<string, string> = {
   return_path: "Return path",
 };
 
-/**
- * ConceptMap — the learner's evolving understanding (ARCHITECTURE_REVISED §6).
- * Clicking a concept drives the cross-panel highlight (selectedConceptId).
- */
 export function ConceptMap() {
-  const { state, dispatch } = useSession();
-  const { record, selectedConceptId } = state;
+  const { state, actions } = useSession();
+  const { record, selectedConceptId, selectedQuestionId } = state;
+
+  // When a question is selected, only its blocking concepts are highlighted.
+  const activeAttempt = state.attempts.find((a) => a.id === state.activeAttemptId);
+  const selectedResult = activeAttempt?.results.find((r) => r.questionId === selectedQuestionId);
+  const blocking = new Set<string>(selectedResult?.blocking.concepts ?? []);
 
   return (
     <section aria-label="Concept map" className="flex flex-col gap-3 rounded-lg border border-black/10 p-4 dark:border-white/15">
@@ -32,20 +32,19 @@ export function ConceptMap() {
         Concept map <span className="ml-1 font-normal normal-case text-zinc-400">record v{record.version}</span>
       </h2>
       <ul className="flex flex-col gap-1">
-        {CONCEPT_ORDER.map((id) => {
+        {CONCEPT_ORDER.map((id: ConceptId) => {
           const c = record.concepts[id];
           const ui = STATE_UI[c.state];
           const selected = selectedConceptId === id;
+          const pulsed = blocking.has(id);
           return (
             <li key={id}>
               <button
                 type="button"
                 aria-pressed={selected}
-                onClick={() =>
-                  dispatch({ type: "SELECT_CONCEPT", payload: { conceptId: selected ? undefined : id } })
-                }
+                onClick={() => actions.selectConcept(selected ? undefined : id)}
                 className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-sm ${
-                  selected ? "bg-zinc-200 dark:bg-zinc-700" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  selected ? "bg-zinc-200 dark:bg-zinc-700" : pulsed ? "bg-amber-100 dark:bg-amber-900/40" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 }`}
               >
                 <span>
@@ -55,6 +54,7 @@ export function ConceptMap() {
                 </span>
                 <span className="text-xs text-zinc-500">{ui.label}</span>
               </button>
+              {selected && c.reason && <p className="px-2 pb-1 text-xs text-zinc-500">{c.reason}</p>}
             </li>
           );
         })}
