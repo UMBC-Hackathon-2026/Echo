@@ -13,6 +13,9 @@
     "check:bundle": "tsx scripts/check-bundle.ts",
     "check:secrets": "tsx scripts/check-secrets.ts",
     "check:env": "tsx scripts/check-env.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:reset:test": "tsx scripts/db-reset-test.ts",
     "verify": "npm run lint && npm run typecheck && npm run test && npm run check:content && npm run check:secrets && npm run build && npm run check:bundle"
   },
   "dependencies": {
