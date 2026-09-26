@@ -21,14 +21,16 @@ every phase ends by running `lint`, `typecheck`, `test`, `check:content`,
 client bundle or DTOs. Unit tests cover the contracts and prove each content rule
 fires on a broken copy. See Validation log.
 
-## Phase 2 — Deterministic learner + validation
+## Phase 2 — Deterministic learner + validation ✅
 
-- [ ] Validation gate (`lib/evaluator/validate.ts`): Zod shape, conservative fallback, empty-evidence downgrade, exact-span provenance (keeps `n + 1` ≠ `n - 1`), contradiction caps.
-- [ ] Gate + answer composer (`lib/learner/`): criterion scoring, fragment selection, outcome, remediation — pure functions.
-- [ ] Misconception lifecycle (seeded + student), probe selector.
-- [ ] Targeted tests: no/partial/full teaching, unsupported fragments, empty evidence, wrong turn ids, `n+1` vs `n-1`, contradictions, misconceptions; exhaustive 3^5 state sweep.
+- [x] Validation gate (`lib/evaluator/validate.ts`): Zod shape, conservative fallback, empty-evidence downgrade, exact-span provenance (keeps `n + 1` ≠ `n - 1`), contradiction caps.
+- [x] Gate + answer composer (`lib/learner/`): criterion scoring, fragment selection, outcome, remediation — pure functions.
+- [x] Misconception lifecycle (seeded + student), probe selector.
+- [x] Targeted tests: no/partial/full teaching, unsupported fragments, empty evidence, wrong turn ids, `n+1` vs `n-1`, contradictions, misconceptions; exhaustive 3^5 state sweep.
 
 **Gate:** displayed answer and score agree for every question; all targeted tests pass.
+
+Implementation details and authored choices: [`PHASE2.md`](./PHASE2.md).
 
 ## Phase 3 — Persisted typed loop + live evaluator
 
@@ -161,3 +163,36 @@ in examples, full form-schema validity, and the two P4 hedge regressions.
 GitHub CI runs the same gate after a clean `npm ci`, without a prior `.next`
 directory. Its latest result is available on PR #1. No live provider calls or
 database connections are part of Phase 1. Phases 2–6 remain unchecked.
+
+
+### 2026-09-26 — Phase 2 closure
+
+Executed `npm run verify` in `C:\Users\aahan\Desktop\UMBC` on
+`feat/phase-2-learner`, based on merged Phase 1 (`7957a5a`). Exit code: **0**.
+
+| Command | Actual result |
+| --- | --- |
+| `npm run lint` | **PASS**, 0 errors; the existing unused-parameter warning in `lib/db/client.ts:21` remains |
+| `npm run typecheck` | **PASS**, generated route types plus TypeScript |
+| `npm run test` | **PASS**, 336 tests across 7 files (all 28 Phase 1 tests retained) |
+| `npm run check:content` | **PASS**, 2 forms / 8 questions / all six rules |
+| `npm run build` | **PASS**, production build including `/session/[id]` |
+| `npm run check:bundle` | **PASS**, 13 client files; configured answer, secret, and dev-fixture sentinels absent |
+| `npm run verify` | **PASS**, all six checks |
+
+The exhaustive learner suite checks 243 concept-state vectors × 2 seeded-belief
+states × 2 uncertainty states × 8 questions = **7,776** answer/score cases.
+Separate tests cover each individually uncertain concept, exact original spans,
+wrong turn IDs, operator differences, negation/keyword fixtures, corrections,
+student/seeded origins, event transitions, immutable snapshots, and wrong reteaching.
+
+`GATE_VERSION` and `VALIDATOR_VERSION` are `1.0.0`. Frozen content remains
+`1.0.1+fd846dc9f057`; authoritative sources and assessment content are unchanged.
+Only `.env.example` is tracked. No new dependencies or credentials were needed.
+
+**Decisions / limits:** see `PHASE2.md` for student-origin key namespacing,
+same-turn contradiction handling, deterministic remediation ordering, missing-entry
+fallback, and original UTF-16 offsets. Provenance does not validate semantic truth;
+live Gemini correctness and prompt adherence remain Phase 3 tests. The new functions
+are not yet wired into routes, persistence, or the scaffold UI. Phases 3–6 remain
+unchecked. GitHub CI runs the same gate on the Phase 2 pull request.
