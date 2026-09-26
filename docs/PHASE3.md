@@ -102,3 +102,69 @@ Once Tasks D–E land, verify in a browser (`npm run dev`, real DB + Gemini):
 5. Refresh mid-session — the state restores identically (hydrate).
 6. Double-click **Send** on one explanation — only one student turn and one
    learner response appear (idempotency), no duplicate record.
+
+## Phase 3c (routes, frontend, live verification)
+
+### STEP 1 — live evaluator (quota-aware)
+
+- **Freeze status:** in Phase 3b **only tuning** was observed live (held-out never
+  ran — quota). Per the freeze rule I may finish tuning first, but tuning
+  iterations need live calls, which are **quota-blocked** this session. The
+  prompt therefore stays **`p1`**, unchanged.
+- **`smaller_subproblem` under-credit (demo cycle 1) — cause:** the **prompt**,
+  specifically its few-shot `demonstrated` example (`Math.floor(n / 2)`), sets a
+  high, concrete bar. The student text "each call works on a smaller n" *does*
+  satisfy the rubric's `demonstratedWhen` ("Says what changes in the input on
+  each call"), so the correct label is `demonstrated`; the model conservatively
+  maps the terser phrasing to `partially_taught`. It is **not** a fixture-expectation
+  or a validation problem, and this is under-crediting (the safe direction).
+  **Fix (deferred):** a measured prompt refinement adding guidance that naming
+  the input and its direction of change counts as `demonstrated` — must be
+  measured on `tuning/` before freezing, so it waits for quota. Validation was
+  **not** loosened and the fixture was **not** weakened.
+- **Held-out ×3: BLOCKED — `429` quota** ("You exceeded your current quota").
+  `eval-live.ts` now stops gracefully and supports `--resume`. Re-run:
+  `npm run eval:live -- heldout --runs 3 --resume`.
+- **`smoke:service`: BLOCKED — `429` quota** (pipeline runs and cleans up; the
+  live teach returns 429). Demo-readiness targets are **not yet verified**.
+
+### STEP 2 — schema parity
+
+`z.toJSONSchema` fails on module-defined schemas here (an `_idmap` global-registry
+error; an inline schema in the same file works — a zod 4.6.5 / tsx dual-instance
+issue). So `RESPONSE_SCHEMA` is hand-authored and enriched to mirror the Zod
+contract (enums, required, quote/reason max lengths, evidence caps,
+`additionalProperties:false`), and `tests/evaluator/schema-parity.test.ts` (ajv)
+pins it: ajv and Zod agree on valid + invalid samples, and structural checks
+assert enums/required/limits/strictness. **NOTE:** the enriched schema needs a
+live re-check against Gemini when quota resets (the permissive version was the
+one live-verified in 3b; standard JSON-Schema keywords, low risk).
+
+### Tasks D and E
+
+- **D. Routes:** six Node-runtime handlers over the service, split into
+  framework-agnostic `lib/http/handlers.ts` (testable with constructed Requests).
+  Per-session httpOnly owner cookie; strict Zod bodies; 404/409/422/400 mapping;
+  evaluator failure → 200 with the failed message; per-IP/session token-bucket
+  rate limit (429 + Retry-After, process-local only); `Cache-Control: no-store`.
+- **E. Frontend:** home starts a session and routes to `/session/[id]`; the page
+  hydrates via GET and resyncs on 409; truthful states (Evaluating/Evaluated/
+  Failed+Retry, Send disabled while pending, Assess disabled while pending/failed,
+  reveal one at a time); cross-highlighting from real spans; dev mocks only behind
+  `NEXT_PUBLIC_USE_MOCKS`; "How the learner works" note.
+
+### Gate 12 — HTTP smoke: BLOCKED (quota)
+
+`scripts/smoke-http.ts` (`npm run smoke:http`, needs `next start` running) is
+ready; the live teach step is quota-blocked. Re-run when quota resets.
+
+### Gate 13 — manual browser checklist
+
+Live Gemini is quota-blocked, so run this once quota resets:
+
+1. `npm run build && npm start`, open `/`, click **Start teaching recursion** → routes to `/session/<id>`.
+2. Type the scripted cycle-1 explanation ("A function is recursive when it calls itself, and each call works on a smaller n.") and **Send**. The turn shows *Evaluating…* then *Evaluated*; a learner probe appears; the concept map shows `base_case` not solid and its record version.
+3. **Refresh mid-session** → the state restores identically (GET hydrate).
+4. **Double-click Send** on a new explanation → only one student turn is created (Send disables while pending; the idempotency key is the backstop).
+5. Click **Assess my learner** → answers reveal one at a time; the termination question is `misconception`/`partial` with `base_case` blocking. Click a concept → its evidence span highlights inside the exact turn; click a question → only its blocking concepts highlight.
+6. To see the failure path, run dev with a forced-failure flag or an invalid `GEMINI_API_KEY`: the student turn shows *Evaluation failed* with a **Retry** button, and **Assess** is disabled until it succeeds.

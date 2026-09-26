@@ -1,5 +1,5 @@
 import "server-only";
-import { CONCEPT_IDS } from "@/lib/contracts";
+import { CONCEPT_IDS, ConceptState } from "@/lib/contracts";
 import type { StudentTurn } from "./provenance";
 import { RECURSION_RUBRIC, PROBE_ORDER } from "@/lib/content/recursion/rubric";
 import { SEEDED_MISCONCEPTIONS } from "@/lib/content/recursion/misconceptions";
@@ -64,39 +64,58 @@ export function buildUserText(turns: readonly StudentTurn[]): string {
   });
 }
 
+// EvidenceRef: mirrors the Zod contract (turn_id ^t\d+$, quote 1..300 chars).
 const evidenceRef = {
   type: "object",
-  properties: { turn_id: { type: "string" }, quote: { type: "string" } },
+  additionalProperties: false,
+  properties: {
+    turn_id: { type: "string", pattern: "^t\\d+$" },
+    quote: { type: "string", minLength: 1, maxLength: 300 },
+  },
   required: ["turn_id", "quote"],
 };
 
-/** JSON schema mirroring the Zod EvaluatorOutput contract (validator enforces strictness). */
+/**
+ * JSON schema for Gemini structured output, kept a faithful mirror of the Zod
+ * EvaluatorOutput contract (enums, required, max lengths, item caps, strictness).
+ * A parity test (tests/evaluator/schema-parity.test.ts) fails if they drift.
+ * The Phase 2 validator is still the source of truth; this only guides the model.
+ *
+ * NOTE: enriched from the earlier permissive version (Phase 3b) with
+ * additionalProperties/limits. The permissive version was live-verified; this
+ * enriched one needs a live re-check when the Gemini quota resets.
+ */
 export const RESPONSE_SCHEMA = {
   type: "object",
+  additionalProperties: false,
   properties: {
     concepts: {
       type: "array",
+      maxItems: 10,
       items: {
         type: "object",
+        additionalProperties: false,
         properties: {
           id: { type: "string", enum: [...CONCEPT_IDS] },
-          state: { type: "string", enum: ["not_taught", "partially_taught", "demonstrated"] },
-          evidence: { type: "array", items: evidenceRef },
-          conflicts: { type: "array", items: evidenceRef },
+          state: { type: "string", enum: [...ConceptState.options] },
+          evidence: { type: "array", maxItems: 3, items: evidenceRef },
+          conflicts: { type: "array", maxItems: 3, items: evidenceRef },
           resolution: { type: "string", enum: ["none", "later_correction", "unresolved"] },
-          reason: { type: "string" },
+          reason: { type: "string", maxLength: 240 },
         },
         required: ["id", "state", "evidence", "conflicts", "resolution", "reason"],
       },
     },
     misconception_reports: {
       type: "array",
+      maxItems: 5,
       items: {
         type: "object",
+        additionalProperties: false,
         properties: {
           id: { type: "string" },
           stance: { type: "string", enum: ["asserted", "retracted"] },
-          evidence: { type: "array", items: evidenceRef },
+          evidence: { type: "array", minItems: 1, maxItems: 3, items: evidenceRef },
         },
         required: ["id", "stance", "evidence"],
       },
