@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# The Inverse Tutor
 
-## Getting Started
+> If you truly understand something, can you teach it well enough for someone else to use it?
 
-First, run the development server:
+## The idea
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Most tutoring tools check whether *you* can answer questions. The Inverse Tutor flips
+that around: **you teach the machine**, and we measure how well it can then *use* what
+you taught. You write an explanation of a concept; a deliberately **restricted AI
+learner** — one with no prior knowledge of the topic — tries to solve transfer problems
+using only your explanation. Where it stumbles is exactly where your understanding (or
+your teaching) has gaps.
+
+## Problem statement
+
+Learners routinely mistake familiarity for understanding. Passive recognition ("yeah,
+I've seen recursion") collapses the moment they have to explain it precisely enough for
+someone else to act on. There's no fast, low-stakes way to surface that gap. The Inverse
+Tutor makes the gap visible: it turns "explain it" into a concrete, gradable signal by
+having a knowledge-restricted agent attempt to apply the explanation, scored against an
+explicit rubric.
+
+## How it works
+
+1. **Teach** — You explain a concept (the seed concept is **recursion**) in the `TeachPanel`.
+2. **Evaluate** — A Gemini-backed evaluator scores your explanation against a rubric of the
+   things a correct explanation must contain.
+3. **Learn** — A restricted learner agent, allowed to rely *only* on your explanation,
+   attempts questions from a question bank.
+4. **Assess** — The `AssessmentPanel` and `ConceptMap` show where the learner succeeded and
+   where your teaching left gaps, so you can revise and try again.
+
+## Tech stack
+
+- **Next.js (App Router)** + **React 19** + **TypeScript**
+- **Tailwind CSS v4**
+- **Google Gemini** — evaluator + restricted learner
+- **PostgreSQL** — sessions, explanations, concept states, assessment history
+- **ElevenLabs** *(optional)* — spoken explanations
+
+## Project structure
+
+```
+app/                      Next.js App Router entry
+components/
+  TeachPanel/             Where the human explains a concept
+  ConceptMap/             Visualizes evolving concept mastery
+  AssessmentPanel/        Shows restricted-learner results
+lib/
+  evaluator/              Gemini evaluator (scores explanations vs. rubric)
+  learner/                Restricted learner (answers using only the explanation)
+  rubric/                 Recursion rubric + question bank
+  db/                     PostgreSQL client + schema migrations
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Install dependencies**
+   ```bash
+   npm install
+   ```
+2. **Configure environment** — copy the example and fill in your keys:
+   ```bash
+   cp .env.example .env.local
+   ```
+   Set `GEMINI_API_KEY` and `DATABASE_URL` (and optionally `ELEVENLABS_API_KEY`).
+3. **Set up the database** — create a PostgreSQL database and apply the migration:
+   ```bash
+   psql "$DATABASE_URL" -f lib/db/migrations/001_init.sql
+   ```
+4. **Run the dev server**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Status & scope
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This is an early hackathon-stage project. It **proposes a pilot with UMBC** to study whether
+teach-to-an-AI-learner improves conceptual understanding; it does **not** claim proven
+learning gains. The rubric, question bank, and learner constraints are the levers we'd
+validate in that pilot.
