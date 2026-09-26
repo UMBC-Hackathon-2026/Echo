@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Live evaluator reports (may contain fixture data, never keys)
+reports/

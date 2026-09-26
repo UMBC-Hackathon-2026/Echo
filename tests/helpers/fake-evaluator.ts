@@ -8,6 +8,8 @@ import type { Evaluator, EvaluateArgs, EvaluationResult } from "@/lib/evaluator/
 export class FakeEvaluator implements Evaluator {
   calls = 0;
   lastArgs: EvaluateArgs | null = null;
+  /** Runs inside evaluate() before returning — used to simulate a concurrent change. */
+  onEvaluate?: (args: EvaluateArgs) => Promise<void> | void;
   private readonly queue: EvaluationResult[];
   private readonly fallback?: EvaluationResult;
 
@@ -24,6 +26,7 @@ export class FakeEvaluator implements Evaluator {
   async evaluate(args: EvaluateArgs): Promise<EvaluationResult> {
     this.calls++;
     this.lastArgs = args;
+    if (this.onEvaluate) await this.onEvaluate(args);
     const next = this.queue.shift() ?? this.fallback;
     if (!next) throw new Error("FakeEvaluator: no scripted result for this call");
     return next;
