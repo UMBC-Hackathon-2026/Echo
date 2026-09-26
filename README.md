@@ -71,10 +71,21 @@ Open [localhost:3000](http://localhost:3000) or
 does not run the future live teaching loop.
 
 Before Phase 3, copy `.env.example` to `.env.local` and configure
-`GEMINI_API_KEY`, `GEMINI_MODEL`, and `DATABASE_URL`. Never commit real values.
-The initial `lib/db` migration is a placeholder, not the reviewed seven-table
-schema; Phase 3 will add and verify the actual migrations. ElevenLabs credentials
+`GEMINI_API_KEY`, `GEMINI_MODEL`, `DATABASE_URL`, and `DATABASE_URL_TEST` (a
+separate database — the tests reset it). Never commit real values. Validate the
+file without printing any value with `npm run check:env`. ElevenLabs credentials
 and voice selection are only needed for Phase 5.
+
+### Git hooks (block committing secrets)
+
+Enable the pre-commit secret scanner once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+It runs `npm run check:secrets` on staged files; `check:secrets` is also part of
+`npm run verify` and CI.
 
 ## Verification and handoff
 
