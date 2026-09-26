@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "check:content": "node --conditions=react-server --import tsx scripts/check-content.ts",
     "check:bundle": "tsx scripts/check-bundle.ts",
