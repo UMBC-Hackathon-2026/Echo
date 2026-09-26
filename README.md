@@ -74,6 +74,23 @@ lib/
    ```
    Open [http://localhost:3000](http://localhost:3000).
 
+## Deploying to DigitalOcean
+
+The repo includes an App Platform spec at [`.do/app.yaml`](.do/app.yaml).
+
+1. **Connect the repo** — In the DigitalOcean dashboard, create a new App and connect
+   this GitHub repo (`aahanrembersu07/inverse-tutor`, branch `main`). App Platform will
+   detect the Next.js app; the spec sets `npm run build` / `npm start` and port `8080`.
+2. **Set the environment variables** — In the app's **Settings → App-Level / Component
+   Environment Variables**, add the three secrets (they are declared as `SECRET`
+   placeholders in the spec, with no values committed):
+   - `GEMINI_API_KEY`
+   - `DATABASE_URL`
+   - `ELEVENLABS_API_KEY`
+3. **Attach a database** — The app needs a **managed PostgreSQL database** (a DO Managed
+   Database, or **Tiger Data**) provisioned and attached **before it will run**. Point
+   `DATABASE_URL` at that database and apply `lib/db/migrations/001_init.sql` to it.
+
 ## Status & scope
 
 This is an early hackathon-stage project. It **proposes a pilot with UMBC** to study whether

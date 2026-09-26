@@ -1,0 +1,35 @@
+# DigitalOcean App Platform spec for The Inverse Tutor (Next.js)
+# Docs: https://docs.digitalocean.com/products/app-platform/reference/app-spec/
+#
+# Import this in the DO dashboard (Create App -> from spec) or via:
+#   doctl apps create --spec .do/app.yaml
+# Secret env values are set in the DO dashboard, not here.
+name: inverse-tutor
+region: nyc
+services:
+  - name: web
+    # Source: connect this GitHub repo in the DO dashboard.
+    github:
+      repo: aahanrembersu07/inverse-tutor
+      branch: main
+      deploy_on_push: true
+    environment_slug: node-js
+    build_command: npm run build
+    run_command: npm start
+    # App Platform routes public HTTP traffic to this port and injects it as $PORT,
+    # which `next start` listens on automatically.
+    http_port: 8080
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    routes:
+      - path: /
+    envs:
+      - key: GEMINI_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+      - key: ELEVENLABS_API_KEY
+        scope: RUN_TIME
+        type: SECRET
