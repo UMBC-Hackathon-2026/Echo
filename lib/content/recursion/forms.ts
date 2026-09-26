@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import type { Form, Question, Fragment } from "@/lib/contracts";
-import { RUBRIC_VERSION } from "./rubric";
+import { RUBRIC_VERSION, RECURSION_RUBRIC } from "./rubric";
 import { SEEDED_MISCONCEPTIONS } from "./misconceptions";
 
 /**
@@ -294,7 +294,7 @@ const A_P4: Question = {
       id: "h.base",
       kind: "hedge",
       exactState: "partially_taught",
-      text: "I think the empty list is the stopping point, but I am not certain what it returns.",
+      text: "I think it has to stop somewhere, but I am not sure where.",
       requires: [{ concept: "base_case", min: "partially_taught" }],
     },
     UNCERTAIN,
@@ -553,7 +553,7 @@ const B_P4: Question = {
       id: "h.base",
       kind: "hedge",
       exactState: "partially_taught",
-      text: "I think the empty string is the stopping point, but I am not certain what it returns.",
+      text: "I think it has to stop somewhere, but I am not sure where.",
       requires: [{ concept: "base_case", min: "partially_taught" }],
     },
     UNCERTAIN,
@@ -568,15 +568,16 @@ const QUESTIONS_B: Question[] = [B_P1, B_P2, B_P3, B_P4];
 
 /**
  * form_version = semantic version + content hash of the frozen content
- * (rubric version, seeded misconceptions, both question banks). Any edit to the
+ * (rubric version and text/examples, seeded misconception metadata, both question banks). Any edit to the
  * content changes the hash; past attempts keep their own snapshots.
  */
-const FORM_SEMVER = "1.0.0";
+const FORM_SEMVER = "1.0.1";
 const contentHash = createHash("sha256")
   .update(
     JSON.stringify({
       rubricVersion: RUBRIC_VERSION,
-      seeded: SEEDED_MISCONCEPTIONS.map((m) => m.id),
+      rubric: RECURSION_RUBRIC,
+      seeded: SEEDED_MISCONCEPTIONS,
       A: QUESTIONS_A,
       B: QUESTIONS_B,
     }),
