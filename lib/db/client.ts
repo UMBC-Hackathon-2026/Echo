@@ -1,27 +1,28 @@
-/**
- * PostgreSQL client.
- *
- * STUB: instantiate a real pool (e.g. `pg`) using DATABASE_URL. Kept as a thin
- * accessor so callers depend on `query()` rather than a specific driver.
- */
+import "server-only";
+import { Pool } from "pg";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "./schema";
 
-export interface QueryResult<Row = Record<string, unknown>> {
-  rows: Row[];
-  rowCount: number;
+/**
+ * Postgres pool + Drizzle client (ARCHITECTURE_REVISED §3, §9). Tiger Cloud has
+ * no pooler, so we keep a small direct pool (max 5) with TLS verification on.
+ */
+let pool: Pool | null = null;
+
+export function getPool(): Pool {
+  if (!pool) {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) throw new Error("DATABASE_URL is not set");
+    const ssl = /sslmode=(require|verify)/.test(connectionString) ? { rejectUnauthorized: true } : undefined;
+    pool = new Pool({ connectionString, max: 5, ssl });
+  }
+  return pool;
 }
 
-const DATABASE_URL = process.env.DATABASE_URL;
+export type Db = NodePgDatabase<typeof schema>;
 
-/**
- * Executes a parameterized SQL query.
- * STUB: replace with a pooled `pg` connection.
- */
-export async function query<Row = Record<string, unknown>>(
-  _sql: string,
-  _params: unknown[] = [],
-): Promise<QueryResult<Row>> {
-  if (!DATABASE_URL) {
-    throw new Error("DATABASE_URL is not set");
-  }
-  throw new Error("db.query not implemented");
+let db: Db | null = null;
+export function getDb(): Db {
+  if (!db) db = drizzle(getPool(), { schema });
+  return db;
 }

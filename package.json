@@ -11,10 +11,17 @@
     "test": "vitest run",
     "check:content": "node --conditions=react-server --import tsx scripts/check-content.ts",
     "check:bundle": "tsx scripts/check-bundle.ts",
-    "verify": "npm run lint && npm run typecheck && npm run test && npm run check:content && npm run build && npm run check:bundle"
+    "check:secrets": "tsx scripts/check-secrets.ts",
+    "check:env": "tsx scripts/check-env.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:reset:test": "tsx scripts/db-reset-test.ts",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run check:content && npm run check:secrets && npm run build && npm run check:bundle"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.3",
     "next": "16.3.6",
+    "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
@@ -23,8 +30,10 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",

@@ -8,6 +8,30 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+
+    # Local Postgres for the DB tests. CI never uses the Tiger Cloud credentials.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # No sslmode -> connect without TLS to the service. The password comes from
+      # PGPASSWORD (node-postgres reads it) so no credential is written literally.
+      PGPASSWORD: postgres
+      DATABASE_URL: postgres://postgres@localhost:5432/postgres
+      DATABASE_URL_TEST: postgres://postgres@localhost:5432/postgres
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,5 +40,7 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Verify (lint, typecheck, test, check:content, build, check:bundle)
+      - name: Apply migrations to the CI database
+        run: npm run db:migrate
+      - name: Verify (lint, typecheck, test, check:content, check:secrets, build, check:bundle)
         run: npm run verify

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Block committing secrets. Scans staged files with scripts/check-secrets.ts.
+# Enable once per clone: git config core.hooksPath .githooks
+node --import tsx scripts/check-secrets.ts --staged
