@@ -25,7 +25,7 @@ frozen forms — no LLM is on the assessment path (§1, §2).
 | Path | Role | Source § |
 | --- | --- | --- |
 | `lib/contracts/` | Zod schemas + TS types + ports (evaluator, repository, clock/id). Client-safe. | §2, §6 |
-| `lib/content/recursion/` | `server-only` rubric, seeded misconception, frozen forms A/B, `form_version`. | §5 |
+| `lib/content/recursion/` | `server-only` rubric with 15 authored examples, seeded misconception, frozen forms A/B, `form_version`. | §5 |
 | `lib/content/validate.ts` | Pure content validator (the six rules + structural checks). | §5 |
 | `scripts/check-content.ts` | Runs the validator over the frozen content; fails CI on any violation. | §5 |
 | `scripts/check-bundle.ts` | Post-build scan: no answer keys, secrets, or dev mocks in the client bundle. | §4 |
@@ -70,4 +70,8 @@ evaluation is a **proposed pilot** with separate pre/post student questions.
 
 ## Deviations from the source
 
-Recorded in `docs/BUILD_PLAN.md` under "Deviations / authored content".
+Recorded in [`BUILD_PLAN.md`](./BUILD_PLAN.md) under "Deviations / authored content".
+Every authored example and question fragment is itemized in
+[`AUTHORED_CONTENT.md`](./AUTHORED_CONTENT.md). The corrected content freeze is
+`1.0.1+fd846dc9f057`; the hash includes both forms, the complete rubric, and
+seeded-misconception metadata. Authoritative source files remain unchanged.

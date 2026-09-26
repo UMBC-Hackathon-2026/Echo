@@ -63,9 +63,9 @@ attempt 1 unchanged; a wrong reteach does not improve; browser E2E; demo video.
 ## Content freeze record
 
 - **Frozen:** 2026-09-26
-- `RUBRIC_VERSION` = `1.0.0`
-- `FORM_VERSION` = `1.0.0+cf6d0a6c07ec`
-- `FORM_CONTENT_HASH` (sha256) = `cf6d0a6c07ec1a940be4924be5bea13cfadefc53d7e774346c69eacdb7b34aa2`
+- `RUBRIC_VERSION` = `1.0.1`
+- `FORM_VERSION` = `1.0.1+fd846dc9f057`
+- `FORM_CONTENT_HASH` (sha256) = `fd846dc9f057890331e98b0774f095457c263c7ca7bc18c7f0c42c59cb098c26`
 - Forms A/B, pairs P1–P4 (termination, trace, non-progress, transfer). Seeded
   misconception `recursion_runs_forever` relevant to P1 and P3.
 - Any content edit changes the hash and must bump the version; past attempts keep
@@ -76,8 +76,8 @@ attempt 1 unchanged; a wrong reteach does not improve; browser E2E; demo video.
 | Check | Command | Notes |
 | --- | --- | --- |
 | Lint | `npm run lint` | eslint (Next config) |
-| Types | `npm run typecheck` | `tsc --noEmit` |
-| Unit tests | `npm run test` | vitest — contracts + content rules |
+| Types | `npm run typecheck` | `next typegen && tsc --noEmit` (works before the first build) |
+| Unit tests | `npm run test` | vitest — contracts + content rules + rubric/fragment regressions |
 | Content | `npm run check:content` | six rules + structural checks |
 | Build | `npm run build` | Next production build |
 | Bundle leak | `npm run check:bundle` | no answer keys/secrets/mocks in `.next/static` |
@@ -89,7 +89,8 @@ The source docs fully specify the contracts, rubric, forms P1–P4, the six cont
 rules, the seeded misconception, and the reducer shape; those were followed as
 written. The following were **authored to fill gaps**, per the instruction to
 follow the `rec.A.P1` example and keep every fragment within its prerequisites —
-each is listed here for review:
+each question, fragment, remediation hint, and example is itemized in
+[`AUTHORED_CONTENT.md`](./AUTHORED_CONTENT.md) for review:
 
 1. **Fragment/answer-key/next-step wording for P1(B), P2–P4 (both forms).** Only
    `rec.A.P1` is written out in full in §5; the rest were authored to the same
@@ -97,7 +98,9 @@ each is listed here for review:
    `demonstrated`; hedges are single-concept `partially_taught`; no fragment
    states a fact beyond its prerequisites.
 2. **`nextStep` hint text** per concept/misconception (shared map in `forms.ts`).
-3. **Probe wording** taken verbatim from the §5 rubric table.
+3. **15 few-shot examples** (one per concept/state), with expected state and
+   rationale. These are authored prompt examples, not measured evaluator results.
+   Probe wording remains verbatim from the §5 rubric table.
 4. **`lib/content/validate.ts` message prefixes** (`[rule1]`…`[rule6]`, `[ids]`,
    `[concepts]`, `[rule4]`) — an implementation detail of the six rules.
 5. **Ports method signatures** (`SessionRepository`) are high-level; concrete
@@ -106,6 +109,15 @@ each is listed here for review:
    needed so vitest installs alongside Next 16's pinned `@types/node ^20`.
 7. **`lib/db/` scaffold** from the initial commit is left in place; Phase 3
    replaces it with the §3 Drizzle schema.
+
+8. **P4 partial-base-case hedges** in both forms now use the source P1 uncertainty
+   wording. Earlier authored hints disclosed the empty-input condition without
+   the prerequisite being demonstrated; the correction has regression tests.
+9. **Content fingerprint** now covers the complete rubric/examples and seeded
+   misconception metadata as well as both forms. Rubric/form semver bumped to
+   `1.0.1` before freezing the corrected content.
+10. **Clean-checkout typecheck** generates Next.js route types before TypeScript.
+    The previous script depended on a prior local build and failed in Ubuntu CI.
 
 ## Validation log
 
@@ -118,4 +130,34 @@ each is listed here for review:
   `[rule3]`, `[rule4]`, `[rule5]`, `[rule6]`, `[ids]`, `[concepts]`.
 - `npm run check:content` → **PASS** — 2 forms, 8 questions pass all six rules.
 - `npm run lint` → **PASS** (exit 0; warnings only, in the Phase 3 `lib/db` stub).
-- `npm run build` / `npm run check:bundle` → recorded in the final report.
+- Build/bundle results were not recorded in this initial log. The complete
+  closure run below supersedes this incomplete entry.
+
+
+### 2026-09-26 — Phase 1 closure
+
+Executed `npm run verify` in `C:\Users\aahan\Desktop\UMBC` after the
+typecheck, example, and P4-hedge corrections. Overall exit code: **0**.
+
+| Command | Actual result |
+| --- | --- |
+| `npm run lint` | **PASS**, 0 errors; 1 existing unused-parameter warning in `lib/db/client.ts:21` |
+| `npm run typecheck` | **PASS**, route types generated before `tsc --noEmit` |
+| `npm run test` | **PASS**, 28 tests in 3 files |
+| `npm run check:content` | **PASS**, 2 forms / 8 questions; all six rules |
+| `npm run build` | **PASS**, Next.js production build; `/`, `/_not-found`, `/session/[id]` |
+| `npm run check:bundle` | **PASS**, 13 client files; none of the 3 answer/fragment sentinels, secret markers, or dev mock sentinel found |
+| `npm run verify` | **PASS**, all six commands above |
+| `git diff --check` | **PASS**, no whitespace errors |
+| Tracked environment files | **PASS**, only `.env.example`; no real `.env` tracked |
+| Source-document preservation | **PASS**, no changes under `docs/source/` |
+
+The original 18 tests still pass, including valid evaluator output and rejection
+of unknown IDs, duplicate IDs, bad states, extra keys, and empty quotes; broken
+content copies cover all six rules plus structural checks. Ten added tests cover
+all 15 rubric examples, unique example IDs, absence of assessment function names
+in examples, full form-schema validity, and the two P4 hedge regressions.
+
+GitHub CI runs the same gate after a clean `npm ci`, without a prior `.next`
+directory. Its latest result is available on PR #1. No live provider calls or
+database connections are part of Phase 1. Phases 2–6 remain unchecked.
