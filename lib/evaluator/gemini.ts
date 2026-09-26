@@ -13,13 +13,20 @@ const MAX_ATTEMPTS = 2;
 export interface GeminiEvaluatorOptions {
   apiKey?: string;
   model?: string;
+  /** Allows live runners to enforce a remaining provider-call budget. */
+  maxAttempts?: number;
 }
 
 export class GeminiEvaluator implements Evaluator {
   private readonly ai: GoogleGenAI;
   private readonly model: string;
+  private readonly maxAttempts: number;
 
   constructor(opts: GeminiEvaluatorOptions = {}) {
+    this.maxAttempts = opts.maxAttempts ?? MAX_ATTEMPTS;
+    if (!Number.isInteger(this.maxAttempts) || this.maxAttempts < 1 || this.maxAttempts > MAX_ATTEMPTS) {
+      throw new Error("maxAttempts must be 1 or 2");
+    }
     const apiKey = opts.apiKey ?? process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
     this.model = opts.model ?? process.env.GEMINI_MODEL ?? "";
@@ -84,7 +91,7 @@ export class GeminiEvaluator implements Evaluator {
 
     const result = await runWithBudget<ValidatedEvaluation>(callOnce, {
       totalMs: TOTAL_MS,
-      maxAttempts: MAX_ATTEMPTS,
+      maxAttempts: this.maxAttempts,
     });
     if (result.ok) {
       return { ok: true, evaluation: result.value, model: this.model, latencyMs: Date.now() - started, attempts: result.attempts };
