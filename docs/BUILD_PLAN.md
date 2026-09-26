@@ -298,7 +298,14 @@ See PHASE3.md for provider-schema diagnosis, call accounting and continuation.
 | Held-out ×3 / demo targets | Not run; NOT MET (unverified) |
 | smoke:service + smoke:http | Not run after provider rate limit |
 | Browser checklist | Pending; no browser session created |
-| Total Gemini calls | **22 / 300**, including all diagnostics and failed requests |
+| Total Gemini calls | **23 / 300**, including all diagnostics and failed requests |
 
 Evaluator demo readiness is **not established**. No held-out results were
 observed and no prompt refinement was made. Phase 4 remains out of scope.
+
+Rate-aware retry at 22:46 UTC: the first single-attempt call returned HTTP 429
+explicitly naming the **20 requests/day free-tier project/model quota**.
+Stopped after one call; slower pacing cannot replenish a daily quota. The key
+comes from `.env.local`. Paid-tier status must be verified for that key's owning
+project before continuing. Previous connectivity success did not verify billing.
+See PHASE3.md for the exact quota identifier and continuation guidance.

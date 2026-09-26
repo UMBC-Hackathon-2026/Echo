@@ -183,7 +183,8 @@ Live Gemini is quota-blocked, so run this once quota resets:
   but had no app schema. No migrations were applied by this session; after the
   user updated the URLs, both schema/migration history and `check:env` passed.
   Baseline `verify` passed: 387 tests, production build, content/secrets/bundle.
-- Paid-tier connectivity: success, `gemini-3.8-flash`, 3,842 ms; one call.
+- Connectivity: success, `gemini-3.8-flash`, 3,842 ms; one call. This did not
+  establish paid-tier status; see the subsequent explicit free-tier error below.
 - `eval:live --max-calls N` defaults to 150 and counts provider attempts, including
   retries. It saves partial results and exits cleanly at the cap. Reports include
   invocation calls, cumulative resume calls, prompt version, and per-run states.
@@ -224,8 +225,41 @@ Next action: retry the corrected-schema three-call check when provider capacity
 and rate limits allow it, then perform the originally authorized p1/p2 tuning,
 freeze commit, held-out ×3, smoke and browser checks in that order. If 429
 persists, inspect the project's Gemini API limits/billing in Google AI Studio;
-the successful paid-tier call proves key/model connectivity, not unrestricted
+the successful connectivity call proves key/model connectivity, not unrestricted
 capacity. Do not rotate keys, weaken validation, or tune using held-out results.
 
 Final regression: `npm run verify` PASS (394 tests), `npm run check:env` PASS;
 `docs/source` and `lib/content` unchanged. No secrets printed or committed.
+
+### Rate-aware retry — 2026-09-26, 22:46 UTC
+
+Planned at most three sequential schema calls, no SDK retries, with a 20-second
+pause between responses. The first call failed after 235 ms with HTTP 429; the
+runner stopped immediately and made no second call.
+
+The structured error identifies the actual blocker:
+
+- Metric: `generativelanguage.googleapis.com/generate_content_free_tier_requests`
+- Quota ID: `GenerateRequestsPerDayPerProjectPerModel-FreeTier`
+- Limit: **20 requests/day**, model `gemini-3.8-flash`
+- Status: `RESOURCE_EXHAUSTED`
+
+This is an exhausted **daily free-tier quota**, not a burst that slower pacing
+can fix. The response also supplied a 41-second retry hint, but a daily quota
+violation does not establish that waiting 41 seconds replenishes it; no extra
+call was spent on that assumption. Google's rate-limit documentation says daily
+quotas reset at midnight Pacific and apply per project, not per API key:
+https://ai.google.dev/gemini-api/docs/rate-limits
+
+The key used comes from `.env.local`, not an inherited environment override.
+No key values or project credentials were printed. Verify in Google AI Studio
+that the project owning this configured key shows a paid tier and active billing.
+If billing was enabled on another project, use a key belonging to the intended
+billing-enabled project via `.env.local`; do not rotate free-tier keys to evade
+quotas. The previous successful call proved connectivity only, not paid status.
+
+Retry calls: **1**. Cumulative closeout calls: **23 / 300**; **277 remain**.
+Schema ×3 remains blocked; p1 is unchanged, p2 is not created, held-out remains
+unobserved, and smoke/browser checks remain pending. No additional code changes
+were needed for this diagnostic retry. The last full verify remains PASS with
+394 tests; no Phase 4 work has started.
