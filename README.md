@@ -2,103 +2,96 @@
 
 > If you truly understand something, can you teach it well enough for someone else to use it?
 
-## The idea and audience
+## How it works
 
-Students explain recursion to a simulated learner, inspect which ideas their
-explanation supports, and revise missing or contradictory teaching. The initial
-audience is UMBC introductory programming students.
+The Inverse Tutor flips the traditional model: students play the role of the teacher. You explain recursion to a simulated learner. The system then evaluates the explanation through a loop:
+1. **Teach:** Submit an explanation.
+2. **Assess:** The learner attempts to answer questions based strictly on your explanation.
+3. **Inspect:** Trace mistakes directly to missed concepts and your original words.
+4. **Reteach:** Clarify a missing idea or correct a misconception.
+5. **Reassess:** The learner takes a new matched test to measure improvement.
 
-The learner is a **rubric-driven simulation**. Its answers are composed from
-authored fragments permitted by a validated teaching record. Its score measures
-the explanation's coverage; it does not independently establish the student's
-mastery, real model learning, or model generalization. A UMBC pilot with separate
-student pre/post questions is proposed, not yet conducted.
+## How the learner works
 
-## Planned loop
+The learner is a **rubric-driven simulation**. 
+- Gemini *only* evaluates the explanation against a strict rubric. 
+- Code decides every answer deterministically based on the verified evidence from that evaluation. 
+- The score reflects the explanation's coverage, not the student's mastery.
 
-1. **Teach:** submit an explanation; Gemini evaluates it against five concepts.
-2. **Assess:** a deterministic learner answers a frozen form from the validated record.
-3. **Inspect:** trace missed criteria to concepts and the student's original words.
-4. **Reteach:** clarify a missing idea or retract an incorrect explanation.
-5. **Reassess:** compare a second matched form while preserving the first attempt.
+## Architecture
 
-## Current status
+The application is a Next.js App Router application connecting to Tiger Data (PostgreSQL) and using Gemini for the evaluation. ElevenLabs is used to provide a synthesized voice for the simulated learner.
 
-**Phases 1 and 2 are implemented.** The repository contains contracts, frozen
-recursion content, a development-only session UI scaffold, exact evidence
-validation, misconception lifecycle, immutable in-memory snapshots, deterministic
-answers/scoring, and authored follow-up selection.
-
-The typed UI is not yet connected to a live evaluator or database. Phase 3 adds
-those integrations and persistence. Review/comparison UI, deployment verification,
-and ElevenLabs voice come later. The learner never calls an LLM to generate answers.
-
-## Tech stack
-
-- Next.js App Router, React 19, TypeScript, Tailwind CSS 4.
-- Zod contracts, Vitest regression tests, ESLint, GitHub Actions.
-- Planned Phase 3: Gemini evaluator (`@google/genai`), PostgreSQL/Tiger Data, Drizzle.
-- Planned Phase 5: ElevenLabs speaks already-approved learner text.
-
-## Project structure
-
-```text
-app/session/[id]/           Three-panel development scaffold
-components/                TeachPanel, ConceptMap, AssessmentPanel
-hooks/useSession.ts        Session reducer and context
-lib/contracts/             Domain types, Zod schemas, provider interfaces
-lib/content/recursion/     Server-only rubric, misconception, frozen forms
-lib/evaluator/             Pure provenance and output validation
-lib/learner/               Pure scoring, fragments, snapshots, lifecycle, probes
-lib/db/                    Initial placeholder; Phase 3 replaces this schema
-tests/                     Contracts, content, validator, learner regressions
-docs/source/               Authoritative reviewed design and handoff
+```mermaid
+flowchart TD
+    Client[Browser (React)] --> Next[Next.js App Router]
+    Next --> DB[(Tiger Data / PostgreSQL)]
+    Next --> Gemini[Gemini API]
+    Next --> ElevenLabs[ElevenLabs TTS]
 ```
 
-## Run locally
+## Setup
 
-Use Node.js 20.19+ on the 20.x line, or Node.js 22.12+ (CI uses Node 20), then:
+**Prerequisites:** Node.js 20.19+ or 22.12+. PostgreSQL.
 
-```bash
-npm ci
-npm run verify
-npm run dev
-```
+**Environment Variables (`.env.local`):**
+- `GEMINI_API_KEY`: Get this from Google AI Studio.
+- `GEMINI_MODEL`: e.g. `gemini-2.5-flash`.
+- `DATABASE_URL`: PostgreSQL connection string for the development database.
+- `DATABASE_URL_TEST`: PostgreSQL connection string for a separate database (the test suite wipes it).
+- `ELEVENLABS_API_KEY`: Get this from the ElevenLabs dashboard.
+- `ELEVENLABS_VOICE_ID`: A chosen voice ID from ElevenLabs.
 
-Open [localhost:3000](http://localhost:3000) or
-[the development session scaffold](http://localhost:3000/session/demo).
-**Phases 1–2 need no API keys or database.** The fixture is development-only and
-does not run the future live teaching loop.
+**Database Setup & Migrations:**
+You need two PostgreSQL databases. One for development (`DATABASE_URL`) and one for tests (`DATABASE_URL_TEST`).
+Run migrations with: `npm run db:push` (and `cross-env DATABASE_URL=$DATABASE_URL_TEST npm run db:push`).
 
-Before Phase 3, copy `.env.example` to `.env.local` and configure
-`GEMINI_API_KEY`, `GEMINI_MODEL`, `DATABASE_URL`, and `DATABASE_URL_TEST` (a
-separate database — the tests reset it). Never commit real values. Validate the
-file without printing any value with `npm run check:env`. ElevenLabs credentials
-and voice selection are only needed for Phase 5.
+**Available Scripts:**
+| Script | Description |
+|---|---|
+| `dev` | Starts the development server |
+| `verify` | Runs lint, typecheck, tests, bundle size/secrets checks, and a production build |
+| `test` | Runs Vitest regression tests (unit & integration) |
+| `e2e:scripted` | Runs Playwright tests using a mocked deterministic evaluator |
+| `e2e:live` | Runs Playwright tests against the live Gemini evaluator |
+| `eval:live` | Runs standalone evaluator tests against the live Gemini model |
+| `smoke:*` | Runs production smoke tests (`smoke:local`, `smoke:deployed`, `smoke:http`) |
+| `check:*` | Runs specific checks (`check:secrets`, `check:content`, `check:bundle`, `check:env`, `check:prod-guard`) |
 
-### Git hooks (block committing secrets)
+## Tests and verification results
 
-Enable the pre-commit secret scanner once per clone:
+The project includes strict deterministic testing and automated quality gates.
+See [BUILD_PLAN.md](docs/BUILD_PLAN.md) and [VERIFICATION_LIVE.md](docs/VERIFICATION_LIVE.md) for the verified results.
 
-```bash
-git config core.hooksPath .githooks
-```
+## Sponsor usage
 
-It runs `npm run check:secrets` on staged files; `check:secrets` is also part of
-`npm run verify` and CI.
+- **Gemini:** Used purely as an evaluator to extract rubric concepts from student text. 
+- **ElevenLabs:** Used for Text-to-Speech (TTS) for the simulated learner. *(Speech-to-Text (STT) was intentionally omitted due to budget constraints and is not verified live).*
+- **Tiger Data:** PostgreSQL database hosting for all session and attempt states.
+- **DigitalOcean:** Production hosting for the application using the App Platform.
 
-## Verification and handoff
+## Limitations
 
-`npm run verify` runs lint, route-type generation/TypeScript, tests, frozen-content
-validation, production build, and the client bundle leak scan. The suite has
-336 tests, including 7,776 exhaustive answer/score cases. One pre-existing unused
-parameter warning remains in the database placeholder.
+- The system currently only teaches a single subject (Recursion) using a hard-coded frozen rubric.
+- The evaluation depends on the LLM's capability to correctly extract evidence.
+- The voice STT is currently a known limitation.
 
-- [Build plan and dated results](docs/BUILD_PLAN.md)
-- [Current architecture](docs/ARCHITECTURE.md)
-- [Phase 2 function contracts, choices, and limits](docs/PHASE2.md)
-- [Authored rubric and assessment content inventory](docs/AUTHORED_CONTENT.md)
+## Proposed UMBC pilot
 
-The existing [DigitalOcean App Platform spec](.do/app.yaml) is deployment preparation.
-Production hosting, provider connectivity, and the live app have not been verified
-in Phase 2; those are later-phase gates.
+*Note: This pilot has not yet been run.*
+
+We propose a study where introductory programming students at UMBC participate. Students will answer separate pre- and post-questions, alongside a comparison group. The simulated scores in this app measure explanation coverage, not learning gains. The true metric will be whether teaching the simulator improves their performance on the post-questions compared to the control group.
+
+## Team and attribution
+
+- Aahan (aahanrembersu07)
+- Arik (arikgershman)
+- Rajan (RajanAadi)
+- William (wfderrick)
+
+## AI-use disclosure
+
+AI tools were heavily utilized during development:
+- **Planning & Architecture:** Used Gemini chat and Google Antigravity to structure the immutable snapshots.
+- **Coding Agents:** Built with autonomous agentic tools (Google Antigravity) completing PRs.
+- **Verification:** AI was used to generate exhaustive deterministic tests and edge cases.
