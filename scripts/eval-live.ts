@@ -21,6 +21,8 @@ import { loadEnvLocal } from "./lib/load-env";
 loadEnvLocal();
 import { mkdirSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { PROMPT_VERSION } from "@/lib/evaluator/prompt";
 import type { ConceptId, ConceptState } from "@/lib/contracts";
 import { GeminiEvaluator } from "@/lib/evaluator/gemini";
@@ -40,6 +42,12 @@ const maxCalls = Number(flag("max-calls") ?? 150);
 const maxAttempts = Number(flag("max-attempts") ?? 1);
 if (![1, 2].includes(maxAttempts)) throw new Error("--max-attempts must be 1 or 2");
 const model = process.env.GEMINI_MODEL;
+// Version labels alone cannot identify rubric/schema/fixture changes.
+const evidenceFiles = execFileSync("git", ["ls-files", "-z", "lib/evaluator", "lib/content", "lib/contracts", "fixtures/evaluator"], { encoding: "utf8" }).split("\0").filter(Boolean).sort();
+const hash = createHash("sha256");
+for (const file of evidenceFiles) hash.update(file).update("\0").update(readFileSync(file)).update("\0");
+const evidenceFingerprint = hash.digest("hex");
+const commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 if (!Number.isSafeInteger(runs) || runs < 1 || !Number.isSafeInteger(maxCalls) || maxCalls < 0) {
   throw new Error("--runs must be a positive integer; --max-calls must be a nonnegative integer");
 }
@@ -55,10 +63,13 @@ const samples: Sample[] = [];
 const only = flag("only")?.split(",").map((s) => s.trim()).filter(Boolean);
 const resume = args.includes("--resume");
 const DELAY_MS = Math.max(0, Number(process.env.EVAL_DELAY_MS ?? 5000));
+if (!Number.isFinite(DELAY_MS)) throw new Error("EVAL_DELAY_MS must be finite");
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let fixtures = setName === "heldout" ? HELDOUT_FIXTURES : TUNING_FIXTURES;
 if (only) fixtures = fixtures.filter((f) => only.includes(f.id));
+if (!fixtures.length || only?.some((id) => !fixtures.some((f) => f.id === id))) throw new Error("--only contains an unknown fixture");
+const reportFile = `reports/eval-${setName}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
 
 interface FixtureAgg { id: string; pass: number; scored: number; over: string[]; under: string[]; errors: number }
 const agg = new Map<string, FixtureAgg>();
@@ -73,6 +84,8 @@ if (resume) {
       const prev = JSON.parse(readFileSync(join("reports", latest), "utf8"));
       if (prev.promptVersion !== PROMPT_VERSION) throw new Error("Cannot resume a different prompt version");
       if (prev.model !== model) throw new Error("Cannot resume a different model");
+      if (prev.evidenceFingerprint !== evidenceFingerprint) throw new Error("Cannot resume changed or unidentified evaluator/rubric/fixtures; start a fresh run");
+      if (prev.runs !== runs || JSON.stringify(prev.perFixture.map((p: { id: string }) => p.id)) !== JSON.stringify(fixtures.map((f) => f.id))) throw new Error("Resume requires the same run count and fixture selection");
       previousCalls = prev.totalCalls ?? prev.calls ?? 0;
       samples.push(...(prev.samples ?? []));
       for (const p of prev.perFixture ?? []) {
@@ -95,8 +108,11 @@ function save(stopped: boolean, stopReason?: string) {
   }));
   const scored = perFixture.reduce((n, p) => n + p.scored, 0);
   const passAll = perFixture.reduce((n, p) => n + p.pass, 0);
-  const file = `reports/eval-${setName}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
-  writeFileSync(file, JSON.stringify({ set: setName, promptVersion: PROMPT_VERSION, model, runs, maxCalls, maxAttempts, delayMs: DELAY_MS, calls, totalCalls: previousCalls + calls, stopped, stopReason, samples, perFixture, scored, passAll }, null, 2));
+  const file = reportFile;
+  const complete = scored === fixtures.length * runs;
+  const overCreditCount = samples.reduce((n, s) => n + (s.overCredit?.length ?? 0), 0);
+  const underCreditCount = samples.reduce((n, s) => n + (s.underCredit?.length ?? 0), 0);
+  writeFileSync(file, JSON.stringify({ set: setName, commit, evidenceFingerprint, promptVersion: PROMPT_VERSION, model, runs, maxCalls, maxAttempts, delayMs: DELAY_MS, calls, totalCalls: previousCalls + calls, stopped, stopReason, complete, overCreditCount, underCreditCount, samples, perFixture, scored, passAll }, null, 2));
   return { file, scored, passAll, perFixture };
 }
 
@@ -132,6 +148,7 @@ async function main() {
           break outer;
         }
         a.errors++;
+        save(true, "in_progress");
         continue;
       }
       a.scored++;
@@ -142,6 +159,7 @@ async function main() {
       if (sc.pass) a.pass++;
       if (sc.overCredit.length) a.over.push(...sc.overCredit);
       if (sc.underCredit.length) a.under.push(...sc.underCredit);
+      save(true, "in_progress");
       process.stdout.write(`\n[${calls}] ${fx.id} pass=${a.pass}/${a.scored}     `);
     }
   }
@@ -155,7 +173,8 @@ async function main() {
   console.log(`\nset=${setName} runs=${runs} calls=${calls} overall=${scored ? ((passAll / scored) * 100).toFixed(1) : "0"}% (${passAll}/${scored})`);
   console.log(`over-credit fixtures: ${over} (base_case: ${baseOver}); under-credit fixtures: ${under}`);
   console.log(`saved ${file}`);
-  process.exit(stopped && stopReason !== "max_calls" ? 1 : 0);
+  console.log(`coverage=${scored}/${fixtures.length * runs}; ${stopped ? `INCOMPLETE (${stopReason})` : "finished"}`);
+  process.exit((stopped && stopReason !== "max_calls") || passAll !== scored || perFixture.some((p) => p.errors > 0) ? 1 : 0);
 }
 
 void main();
