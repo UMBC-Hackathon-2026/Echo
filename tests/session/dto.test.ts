@@ -5,7 +5,7 @@ import { createInitialRecord } from "@/lib/learner/record";
 import { FORM_A } from "@/lib/content/recursion/forms";
 import { toAttemptDTO, type AttemptShape, type ResultRow } from "@/lib/session/dto";
 
-const { record } = createInitialRecord({ id: "r0", sessionId: "s1", conceptIds: defaultTopic.rubricData.concepts.map((c: any) => c.id), topicRubricData: defaultTopic.rubricData });
+const { record } = createInitialRecord({ id: "r0", sessionId: "s1", conceptIds: defaultTopic.rubricData.concepts.map((c) => c.id), topicRubricData: defaultTopic.rubricData });
 const question = FORM_A.questions[0]; // rec.A.P1
 const result = assessQuestion(record, question, defaultTopic);
 const rows: ResultRow[] = [{ result, question }];

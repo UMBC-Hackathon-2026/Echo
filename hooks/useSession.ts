@@ -53,7 +53,7 @@ function reducer(state: SessionState, action: Action): SessionState {
       const lastVer = state.recordHistory.at(-1)?.version;
       const recordHistory = lastVer === dto.record.version ? state.recordHistory : [...state.recordHistory, dto.record];
       return {
-        ...state, sessionId: dto.sessionId, phase: dto.phase, revision: dto.revision, cycle: dto.cycle,
+        ...state, sessionId: dto.sessionId, topic: dto.topic, phase: dto.phase, revision: dto.revision, cycle: dto.cycle,
         messages: dto.messages, record: dto.record, recordHistory, attempts: dto.attempts,
         activeAttemptId: active?.id, revealIndex, pending: {},
       };

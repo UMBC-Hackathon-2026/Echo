@@ -1,3 +1,4 @@
+import type { TopicRubric } from "@/lib/contracts/topic";
 import "server-only";
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from "node:crypto";
 import { and, eq } from "drizzle-orm";
@@ -14,6 +15,11 @@ import { VALIDATOR_VERSION } from "@/lib/evaluator/validate";
 import type { Evaluator } from "@/lib/evaluator/evaluator";
 import { toSessionDTO } from "./dto";
 import { ConflictError, IdempotencyMismatchError, InvalidInputError, NotFoundError } from "./errors";
+
+function requireTopic<T extends { rubricData: TopicRubric | null; status: string }>(row: T | undefined): T & { rubricData: TopicRubric } {
+  if (!row || row.status !== "ready" || !row.rubricData) throw new NotFoundError("topic not ready");
+  return { ...row, rubricData: row.rubricData };
+}
 
 const TURN_CAP = 30;
 const MAX_TEXT = 2000;
@@ -96,7 +102,7 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
       repo.getAttemptsWithResults(exec, sessionId),
       exec.select().from(schema.topics).where(eq(schema.topics.id, session.topicId)).limit(1)
     ]);
-    const topic = topicsRows[0];
+    const topic = requireTopic(topicsRows[0]);
     if (!topic) throw new Error("Topic not found");
     const dto = toSessionDTO({ 
       sessionId, 
@@ -150,7 +156,7 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
       const recordId = randomUUID();
       await db.transaction(async (tx) => {
         let topicId = providedTopicId;
-        let topicRow: any = undefined;
+        let topicRow: { id: string; name: string; rubricData: TopicRubric; status: typeof schema.topics.$inferSelect["status"] };
         if (!topicId) {
           topicId = randomUUID();
           topicRow = {
@@ -170,10 +176,10 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
                   id: "dyn.A.P1",
                   pairId: "P1",
                   type: "trace",
-                  text: "Question 1",
-                  answerKey: { expectedAnswer: "Yes" },
-                  criteria: [{ id: "c1", points: 2, requires: ["base_case"] }],
-                  fragments: [{ id: "f1", kind: "uncertain", text: "hmm" }],
+                  prompt: "Question 1", difficulty: 1, steps: 1, code: "", assumptions: "",
+                  answerKey: "Yes",
+                  criteria: [{ id: "c1", text: "Explain the base case", points: 2, requires: ["base_case"] }],
+                  fragments: [{ id: "f1", kind: "uncertain", text: "hmm", requires: [] }],
                   nextStep: {
                     base_case: "Review the base case.",
                     recursion_runs_forever: "Recursion doesn't run forever if you have a base case."
@@ -187,11 +193,11 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
           await tx.insert(schema.topics).values(topicRow);
         } else {
           const tRows = await tx.select().from(schema.topics).where(eq(schema.topics.id, topicId)).limit(1);
-          topicRow = tRows[0];
+          topicRow = requireTopic(tRows[0]);
           if (!topicRow) throw new NotFoundError("topic missing");
         }
 
-        const { record, events } = createInitialRecord({ id: recordId, sessionId, conceptIds: Array.from(topicRow.rubricData.concepts.map((c: any) => c.id)), topicRubricData: topicRow.rubricData });
+        const { record, events } = createInitialRecord({ id: recordId, sessionId, conceptIds: Array.from(topicRow.rubricData.concepts.map((c) => c.id)), topicRubricData: topicRow.rubricData });
 
         await tx.insert(schema.sessions).values({
           id: sessionId,
@@ -217,7 +223,7 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
           sessionId,
           turnNo: 1,
           role: "learner",
-          content: (topicRow.rubricData as any)?.misconceptions?.[0]?.openingLine || "Wait, doesn't a function calling itself just run forever?",
+          content: topicRow.rubricData?.misconceptions?.[0]?.openingLine || "Wait, doesn't a function calling itself just run forever?",
           inputMode: "typed",
           cycle: 1,
           evalStatus: "not_applicable",
@@ -264,7 +270,7 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
       const sessionRow = await repo.getSession(db, sessionId);
       if (!sessionRow) throw new NotFoundError();
       const tRows = await db.select().from(schema.topics).where(eq(schema.topics.id, sessionRow.topicId)).limit(1);
-      const topicRow = tRows[0];
+      const topicRow = requireTopic(tRows[0]);
       if (!topicRow) throw new NotFoundError("topic missing");
       const result = await evaluator.evaluate({ 
         sessionId, 
@@ -338,7 +344,7 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
       const sessionRow = await repo.getSession(db, sessionId);
       if (!sessionRow) throw new NotFoundError();
       const tRows = await db.select().from(schema.topics).where(eq(schema.topics.id, sessionRow.topicId)).limit(1);
-      const topicRow = tRows[0];
+      const topicRow = requireTopic(tRows[0]);
       if (!topicRow) throw new NotFoundError("topic missing");
       const result = await evaluator.evaluate({ 
         sessionId, 
@@ -398,11 +404,11 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
         if (!record) throw new NotFoundError("record not found");
 
         const tRows = await tx.select().from(schema.topics).where(eq(schema.topics.id, s.topicId)).limit(1);
-        const topicRow = tRows[0];
+        const topicRow = requireTopic(tRows[0]);
         if (!topicRow) throw new NotFoundError("topic missing");
 
         const formId = s.phase === "teaching" ? "dynamic.A" : "dynamic.B";
-        const questions = (topicRow.rubricData as any).questions;
+        const questions = topicRow.rubricData.questions;
         const attemptId = randomUUID();
         const attemptNo = s.phase === "teaching" ? 1 : 2;
         await tx.insert(schema.assessmentAttempts).values({

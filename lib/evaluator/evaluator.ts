@@ -1,3 +1,4 @@
+import type { TeachingTopic } from "@/lib/contracts/topic";
 import type { ValidatedEvaluation } from "./validate";
 import type { StudentTurn } from "./provenance";
 import type { EvaluationFailure } from "./budget";
@@ -13,7 +14,7 @@ import type { EvaluationFailure } from "./budget";
  */
 export interface EvaluateArgs {
   sessionId: string;
-  topic: { id: string; name: string; rubricData: any };
+  topic: TeachingTopic;
   turns: StudentTurn[];
   /** Optional external cancellation (e.g. request aborted). */
   signal?: AbortSignal;

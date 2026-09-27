@@ -15,14 +15,6 @@ const STATE_LABEL: Record<ConceptState, string> = {
   demonstrated: "Solid",
 };
 
-const CONCEPT_LABEL: Record<string, string> = {
-  recursive_call: "Calls itself",
-  smaller_subproblem: "Smaller subproblem",
-  base_case: "Base case",
-  progress_toward_base_case: "Progress to base case",
-  return_path: "Return path",
-};
-
 const SEEDED_BELIEF_ID = "recursion_runs_forever";
 
 export function AssessmentPanel() {
@@ -82,7 +74,7 @@ export function AssessmentPanel() {
             <div data-testid="concept-changes" className="rounded-md border border-black/10 p-3 text-sm dark:border-white/15">
               <h3 className="font-semibold">What your learner understands now</h3>
               <ul className="mt-1 flex flex-col gap-1">
-                {state.topic.rubricData.concepts.map((concept: any) => {
+                {state.topic.rubricData.concepts.map((concept) => {
                   const cid = concept.id;
                   const before = concepts.conceptsBefore[cid];
                   const after = concepts.conceptsAfter[cid];
@@ -228,6 +220,7 @@ export function AssessmentPanel() {
                     <summary className="cursor-pointer">Answer key &amp; criteria</summary>
                     <p className="mt-1">{r.review.answerKey}</p>
                     <ul className="mt-1 list-disc pl-4">
+                      {r.review.guidance?.map((text, index) => <li key={`guidance-${index}`}>{text}</li>)}
                       {r.review.criteria.map((c) => (
                         <li key={c.id}>{c.text} ({c.points} pt) — {r.earnedCriteria.includes(c.id) ? "earned" : "not earned"}</li>
                       ))}

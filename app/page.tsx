@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/client/api";
 import { EXTRACTION_FAILURE, MAX_FILES, pdfProblem } from "@/lib/topics/upload-policy";
 
+const DEMO_HELPER = process.env.NEXT_PUBLIC_DEMO_HELPER === "true";
 
 export default function Home() {
   const router = useRouter();
@@ -81,6 +82,19 @@ export default function Home() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : EXTRACTION_FAILURE);
       setFailed(true);
+      setBusy(false);
+    }
+  }
+
+  async function startDemo() {
+    setBusy(true);
+    setFailed(false);
+    setError(null);
+    try {
+      const dto = await api.createSession();
+      router.push(`/session/${dto.sessionId}`);
+    } catch {
+      setError("Could not start the recursion demo.");
       setBusy(false);
     }
   }
@@ -169,6 +183,17 @@ export default function Home() {
           {busy ? "Starting…" : "Start teaching"}
         </button>
       </form>
+
+      {DEMO_HELPER && (
+        <button
+          type="button"
+          onClick={() => void startDemo()}
+          disabled={busy}
+          className="w-full rounded-full border border-zinc-300 px-6 py-3 text-base font-medium disabled:opacity-50 dark:border-zinc-700"
+        >
+          Start teaching recursion
+        </button>
+      )}
       
       <p className="max-w-xl text-xs text-zinc-500 mt-4">
         The learner is a simulation; its answers come only from the verified teaching record, and its score reflects the explanation, not your own mastery.

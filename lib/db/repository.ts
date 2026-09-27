@@ -1,9 +1,10 @@
+import type { AssessmentQuestion } from "@/lib/contracts/topic";
 import "server-only";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "./schema";
 import type { Db } from "./client";
-import type { LearningRecord, Question, QuestionResult } from "@/lib/contracts";
+import type { LearningRecord, QuestionResult } from "@/lib/contracts";
 import type { StudentTurn } from "@/lib/evaluator/provenance";
 import type { AttemptShape, MessageRow, ResultRow } from "@/lib/session/dto";
 
@@ -160,7 +161,7 @@ export async function getAttemptsWithResults(exec: Executor, sessionId: string):
       .where(eq(schema.questionResults.attemptId, a.id))
       .orderBy(asc(schema.questionResults.questionId));
     const results: ResultRow[] = resultRows.map((r) => {
-      const question = r.questionSnapshot as Question;
+      const question = r.questionSnapshot as AssessmentQuestion;
       const result: QuestionResult & { id: string } = {
         id: r.id,
         questionId: r.questionId,

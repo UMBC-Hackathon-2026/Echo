@@ -81,7 +81,7 @@ test('keyboard-only demo path and phase screenshots @scripted', async ({ page })
   await revealAll(page);
   await completeAttempt(page);
   await expect(page.getByText('Blocking:').first()).toBeVisible();
-  await activate(page, page.locator('button[aria-pressed]').filter({ hasText: 'What' }).first());
+  await activate(page, page.locator('button[aria-pressed]').first());
   await capture(page, '03-reviewing.png');
 
   const reteachResponse = page.waitForResponse((r) => r.url().includes('/reteach') && r.request().method() === 'POST');
