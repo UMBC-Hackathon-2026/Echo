@@ -2,17 +2,16 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { api, asApiError } from "@/lib/client/api";
+import { api } from "@/lib/client/api";
+import { EXTRACTION_FAILURE, MAX_FILES, pdfProblem } from "@/lib/topics/upload-policy";
 
-const MAX_FILES = 20;
-const MAX_FILE_SIZE_MB = 10;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 export default function Home() {
   const router = useRouter();
   const [topicName, setTopicName] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -28,12 +27,9 @@ export default function Home() {
     }
 
     const validFiles = selectedFiles.filter(file => {
-      if (file.type !== "application/pdf") {
-        setError("Only PDF files are allowed.");
-        return false;
-      }
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        setError(`File ${file.name} exceeds the ${MAX_FILE_SIZE_MB}MB limit.`);
+      const problem = pdfProblem(file);
+      if (problem) {
+        setError(problem);
         return false;
       }
       return true;
@@ -64,6 +60,7 @@ export default function Home() {
     }
 
     setBusy(true);
+    setFailed(false);
     setError(null);
     try {
       const formData = new FormData();
@@ -73,28 +70,34 @@ export default function Home() {
       const res = await fetch("/api/topics/create", { method: "POST", body: formData });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to extract concepts");
+        const wait = Number(res.headers.get("retry-after"));
+        const message = typeof errorData.error === "string" ? errorData.error : EXTRACTION_FAILURE;
+        throw new Error(res.status === 429 && wait > 0 ? `${message} Try again in ${wait} seconds.` : message);
       }
       const { topicId } = await res.json();
       
       const dto = await api.createSession({ topicId });
       router.push(`/session/${dto.sessionId}`);
-    } catch (e: any) {
-      setError(e.message || "Could not extract concepts from materials.");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : EXTRACTION_FAILURE);
+      setFailed(true);
       setBusy(false);
     }
   }
 
-  if (busy) {
+  if (busy || failed) {
     return (
       <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center gap-6 p-8 text-center">
         <div className="flex flex-col gap-4 items-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900 dark:border-zinc-800 dark:border-t-zinc-100"></div>
-          <h1 className="text-2xl font-semibold tracking-tight">Analyzing materials...</h1>
-          <p className="text-zinc-600 dark:text-zinc-400">
+          {busy && <div aria-hidden="true" className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900 dark:border-zinc-800 dark:border-t-zinc-100"></div>}
+          <h1 aria-live="polite" className="text-2xl font-semibold tracking-tight">{failed ? "We couldn't prepare your lesson" : "Analyzing materials..."}</h1>
+          {failed ? <>
+            <p role="alert" className="text-zinc-600 dark:text-zinc-400">{error}</p>
+            <button type="button" className="rounded-md border px-4 py-2" onClick={() => { setFailed(false); setError(null); }}>Review documents and try again</button>
+          </> : <p className="text-zinc-600 dark:text-zinc-400">
             Extracting core concepts, common misconceptions, and building an assessment rubric.<br/>
-            This usually takes 30-60 seconds.
-          </p>
+            Please keep this page open while your documents are processed.
+          </p>}
         </div>
       </main>
     );
@@ -115,6 +118,7 @@ export default function Home() {
           <input 
             id="topic"
             type="text" 
+            maxLength={200}
             value={topicName}
             onChange={(e) => setTopicName(e.target.value)}
             placeholder="e.g. Photosynthesis, Binary Search Trees..."
@@ -126,11 +130,11 @@ export default function Home() {
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium">Study Materials (PDF only, up to {MAX_FILES})</label>
           <div className="rounded-md border-2 border-dashed border-zinc-300 p-6 flex flex-col items-center justify-center gap-2 dark:border-zinc-700">
-            <span className="text-sm text-zinc-500">Drag and drop or select files</span>
+            <span className="text-sm text-zinc-500">Select PDF files (up to 10MB each)</span>
             <input 
               type="file" 
               ref={fileInputRef}
-              accept="application/pdf"
+              accept=".pdf,application/pdf"
               multiple 
               onChange={handleFileChange}
               className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-zinc-100 file:text-zinc-900 hover:file:bg-zinc-200 dark:file:bg-zinc-800 dark:file:text-zinc-100"
