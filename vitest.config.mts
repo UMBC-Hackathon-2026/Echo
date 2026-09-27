@@ -17,5 +17,9 @@ export default defineConfig({
     environment: "node",
     include: ["**/*.test.ts"],
     exclude: ["node_modules/**", ".next/**"],
+    // DB-backed suites make many sequential round-trips to a remote Postgres;
+    // the default 5s is too tight for the multi-step Phase 4 flow under load.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });

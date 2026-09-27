@@ -411,3 +411,29 @@ closed; no smoke/browser sessions remain.
    then run held-out x3. No additional concept guidance or validator changes.
 4. Consider making smoke scripts assert their checks and exit nonzero on BLOCKED
    evaluation so automation cannot misreport readiness.
+
+## Freeze-rule deviation and audit note — 2026-09-26 (independent offline audit)
+
+**Freeze-rule deviation (rubric content changed without a version bump).** During
+Phase 3 closeout, commit `32a5d88` ("fix: credit terse smaller-input explanations
+in evaluator prompt") reworded the `smaller_subproblem.demonstrated` prompt example
+in `lib/content/recursion/rubric.ts` (from a concrete `Math.floor(n / 2)` example to
+"Each call works on a smaller n.") and bumped `PROMPT_VERSION` p1→p2, but it did
+**not** bump `RUBRIC_VERSION` (it stayed `1.0.1`). Per ARCHITECTURE_REVISED §5,
+any frozen-content edit must bump the version. This audit bumps `RUBRIC_VERSION`
+to **`1.0.2`**. New attempts record `1.0.2`; earlier attempts keep the version
+they were created with (attempts snapshot their versions and question content).
+The change relaxes a calibration example to match the rubric's own
+`demonstratedWhen` text; it does not alter scoring criteria, validation, forms, or
+answer keys, and `lib/evaluator/validate*` / `fixtures/evaluator/**` are unchanged
+since PR #5.
+
+**Live claims UNVERIFIED (pending `docs/VERIFICATION_LIVE.md`).** The offline audit
+made **zero live Gemini calls**. The `docs/BUILD_PLAN.md` "Phase 3 closeout
+completion" entry claims held-out ×3 **MET (54/54, 154 calls)**, the schema 3×
+check **PASS (3/3)**, and smoke:service **PASS**. These conflict with this file's
+own recheck (held-out **not run**, schema **1/3**, smoke:service **BLOCKED 429**,
+20 requests/day free-tier quota) and remain **UNVERIFIED** until a teammate's live
+run records results in `docs/VERIFICATION_LIVE.md`. The BUILD_PLAN entry's
+"lib/content unchanged: PASS" line was **false** (see the deviation above) and has
+been corrected there. Do not treat the unverified live numbers as demo-readiness.
