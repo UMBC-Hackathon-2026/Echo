@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/client/api";
+import { api, apiErrorMessage, asApiError } from "@/lib/client/api";
 import { EXTRACTION_FAILURE, MAX_FILES, pdfProblem } from "@/lib/topics/upload-policy";
 
 const DEMO_HELPER = process.env.NEXT_PUBLIC_DEMO_HELPER === "true";
@@ -68,19 +68,12 @@ export default function Home() {
       formData.append("topicName", topicName);
       files.forEach(f => formData.append("files", f));
       
-      const res = await fetch("/api/topics/create", { method: "POST", body: formData });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        const wait = Number(res.headers.get("retry-after"));
-        const message = typeof errorData.error === "string" ? errorData.error : EXTRACTION_FAILURE;
-        throw new Error(res.status === 429 && wait > 0 ? `${message} Try again in ${wait} seconds.` : message);
-      }
-      const { topicId } = await res.json();
+      const { topicId } = await api.createTopic(formData);
       
       const dto = await api.createSession({ topicId });
       router.push(`/session/${dto.sessionId}`);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : EXTRACTION_FAILURE);
+      setError(apiErrorMessage(asApiError(e), EXTRACTION_FAILURE));
       setFailed(true);
       setBusy(false);
     }
@@ -93,8 +86,8 @@ export default function Home() {
     try {
       const dto = await api.createSession();
       router.push(`/session/${dto.sessionId}`);
-    } catch {
-      setError("Could not start the recursion demo.");
+    } catch (e: unknown) {
+      setError(apiErrorMessage(asApiError(e), "Could not start the recursion demo."));
       setBusy(false);
     }
   }

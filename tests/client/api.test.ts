@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, apiErrorMessage, asApiError, type ApiError } from "@/lib/client/api";
+import { api, apiErrorMessage, asApiError, newIdempotencyKey, type ApiError } from "@/lib/client/api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -16,6 +16,36 @@ function requestAt(mock: ReturnType<typeof vi.fn>, index: number) {
 }
 
 describe("browser API contract", () => {
+  it("reads the health endpoint through the shared client", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true, db: "up" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.getHealth()).resolves.toEqual({ ok: true, db: "up" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/health", {
+      method: "GET",
+      headers: {},
+      body: undefined,
+    });
+  });
+
+  it("uploads topic PDFs without overriding the multipart content type", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ topicId: "00000000-0000-4000-8000-000000000001" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const formData = new FormData();
+    formData.append("topicName", "Biology");
+
+    await expect(api.createTopic(formData)).resolves.toEqual({ topicId: "00000000-0000-4000-8000-000000000001" });
+
+    const [path, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(path).toBe("/api/topics/create");
+    expect(init).toMatchObject({ method: "POST", body: formData });
+    expect(new Headers(init.headers).has("content-type")).toBe(false);
+  });
+
+  it("generates UUID-v4 idempotency keys", () => {
+    expect(newIdempotencyKey()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+
   it("sends the backend's exact mutation headers and bodies", async () => {
     const fetchMock = vi.fn(async () => Response.json({ sessionId: "session" }));
     vi.stubGlobal("fetch", fetchMock);
@@ -73,6 +103,8 @@ describe("browser API contract", () => {
     [{ status: 409, error: "conflict", phase: "teaching", revision: 2 }, "This session changed. Refresh the latest state and try again."],
     [{ status: 422, error: "idempotency_mismatch" }, "This action conflicts with an earlier request. Please try the action again."],
     [{ status: 422, error: "invalid_request", detail: "invalid value" }, "invalid value"],
+    [{ status: 422, error: "We couldn't read the uploaded PDFs." }, "We couldn't read the uploaded PDFs."],
+    [{ status: 502, error: "The document service is unavailable." }, "The document service is unavailable."],
   ];
 
   it.each(errorCases)("formats API error %j", (error, expected) => {
