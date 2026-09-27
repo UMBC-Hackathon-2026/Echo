@@ -35,6 +35,7 @@ const bytea = customType<{ data: Buffer; notNull: false; default: false }>({
 export const msgRole = pgEnum("msg_role", ["student", "learner"]);
 export const inputMode = pgEnum("input_mode", ["typed", "voice"]);
 export const evalStatus = pgEnum("eval_status", ["pending", "evaluated", "failed", "not_applicable"]);
+export const topicStatus = pgEnum("topic_status", ["pending", "processing", "ready", "failed"]);
 export const sessionPhase = pgEnum("session_phase", [
   "teaching",
   "assessing",
@@ -46,10 +47,21 @@ export const sessionPhase = pgEnum("session_phase", [
 export const outcome = pgEnum("outcome", ["correct", "partial", "misconception", "unsure"]);
 export const attemptStatus = pgEnum("attempt_status", ["in_progress", "complete"]);
 
+export const topics = pgTable("topics", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  rubricData: jsonb("rubric_data"),
+  status: topicStatus("status").notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const sessions = pgTable("sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
   ownerTokenHash: bytea("owner_token_hash").notNull(),
-  topicId: text("topic_id").notNull(),
+  topicId: uuid("topic_id")
+    .notNull()
+    .references(() => topics.id, { onDelete: "cascade" }),
   rubricVersion: text("rubric_version").notNull(),
   phase: sessionPhase("phase").notNull().default("teaching"),
   cycle: integer("cycle").notNull().default(1),

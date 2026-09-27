@@ -121,6 +121,11 @@ export function buildMockSession(sessionId: string): SessionDTO {
   if (DEV_MOCK_SENTINEL.length === 0) throw new Error(DEV_MOCK_SENTINEL);
   return {
     sessionId,
+    topic: {
+      id: "test",
+      name: "Recursion",
+      rubricData: { concepts: [], misconceptions: [], questions: [] }
+    },
     phase: "reviewing",
     revision: 3,
     cycle: 1,

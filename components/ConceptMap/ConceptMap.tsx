@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession, CONCEPT_ORDER } from "@/hooks/useSession";
+import { useSession } from "@/hooks/useSession";
 import type { ConceptId, ConceptState } from "@/lib/contracts";
 
 const STATE_UI: Record<ConceptState, { label: string; icon: string }> = {
@@ -30,7 +30,8 @@ export function ConceptMap() {
     <section aria-label="Concept map" className="panel-card concept-panel">
       <div className="panel-heading"><span>2</span><div><h2>Teaching record</h2><p>Verified concepts · record v{record.version}</p></div></div>
       <ul className="concept-list">
-        {CONCEPT_ORDER.map((id: ConceptId) => {
+        {state.topic.rubricData.concepts.map((concept: any) => {
+          const id = concept.id;
           const c = record.concepts[id];
           const ui = STATE_UI[c.state];
           const selected = selectedConceptId === id;

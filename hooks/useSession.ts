@@ -1,8 +1,7 @@
 "use client";
 
 import { createContext, createElement, useContext, useReducer, useEffect, useRef, type ReactNode } from "react";
-import { api, asApiError, newIdempotencyKey } from "@/lib/client/api";
-import { CONCEPT_IDS } from "@/lib/contracts";
+import { asApiError, newIdempotencyKey, api } from "@/lib/client/api";
 import type { ConceptId, RecordDTO, SessionDTO, ComparisonRowDTO } from "@/lib/contracts";
 
 export interface SessionState extends Omit<SessionDTO, "attempts"> {
@@ -18,19 +17,14 @@ export interface SessionState extends Omit<SessionDTO, "attempts"> {
   errors: Array<{ kind: "llm" | "network" | "conflict"; message: string }>;
 }
 
-export const CONCEPT_ORDER: ConceptId[] = [...CONCEPT_IDS];
-
 export function emptyRecord(): RecordDTO {
   const concepts = {} as RecordDTO["concepts"];
-  for (const id of CONCEPT_IDS) {
-    concepts[id] = { state: "not_taught", evidence: [], conflicts: [], uncertain: false, reason: "not assessed" };
-  }
   return { id: "record-0", version: 0, cycle: 1, rubricVersion: "1.0.2", concepts, misconceptions: {} };
 }
 
 function initial(sessionId: string): SessionState {
   return {
-    sessionId, phase: "teaching", revision: 0, cycle: 1, messages: [], record: emptyRecord(),
+    sessionId, topic: { id: "test", name: "Topic", rubricData: { concepts: [], misconceptions: [], questions: [] } }, phase: "teaching", revision: 0, cycle: 1, messages: [], record: emptyRecord(),
     recordHistory: [], attempts: [], revealIndex: 0, pending: {},
     voice: { enabled: false, speaking: false, listening: false }, errors: [],
   };

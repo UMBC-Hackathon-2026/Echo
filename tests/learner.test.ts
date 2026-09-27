@@ -1,3 +1,4 @@
+import { defaultTopic } from "./helpers/phase2";
 import { describe, expect, it } from "vitest";
 import { CONCEPT_IDS, ConceptState } from "@/lib/contracts";
 import { FORMS } from "@/lib/content/recursion/forms";
@@ -16,7 +17,7 @@ describe("deterministic answers and scoring", () => {
   it("shows only uncertainty without teaching or a relevant active misconception", () => {
     const record = recordWith("not_taught");
     for (const question of questions) {
-      const result = assessQuestion(record, question);
+      const result = assessQuestion(record, question, defaultTopic);
       expect(result).toMatchObject({ points: 0, outcome: "unsure", earnedCriteria: [] });
       expect(result.fragmentIds).toEqual(question.fragments.filter((f) => f.kind === "uncertain").map((f) => f.id));
     }
@@ -25,7 +26,7 @@ describe("deterministic answers and scoring", () => {
   it("does not turn a partial base case into knowledge of smaller inputs or points", () => {
     const record = recordWith("not_taught", true);
     record.concepts.base_case.state = "partially_taught";
-    const result = assessQuestion(record, p1);
+    const result = assessQuestion(record, p1, defaultTopic);
     expect(result.fragmentIds).toEqual(["h.base", "m.forever"]);
     expect(result.points).toBe(0);
     expect(result.outcome).toBe("misconception");
@@ -33,7 +34,7 @@ describe("deterministic answers and scoring", () => {
   });
 
   it("retains a relevant misconception even when teaching would otherwise satisfy every criterion", () => {
-    const result = assessQuestion(recordWith("demonstrated", true), p1);
+    const result = assessQuestion(recordWith("demonstrated", true), p1, defaultTopic);
     expect(result.fragmentIds).toContain("m.forever");
     expect(result.fragmentIds).not.toContain("f.c1");
     expect(result.points).toBe(0);
@@ -45,7 +46,7 @@ describe("deterministic answers and scoring", () => {
   it("never marks demonstrated concepts failed just because a multi-concept criterion failed", () => {
     const record = recordWith("demonstrated");
     record.concepts.progress_toward_base_case.state = "not_taught";
-    const result = assessQuestion(record, p1);
+    const result = assessQuestion(record, p1, defaultTopic);
     expect(result).toMatchObject({ points: 1, outcome: "partial", earnedCriteria: ["c1"] });
     expect(result.blocking.concepts).toEqual(["progress_toward_base_case"]);
   });
@@ -54,7 +55,7 @@ describe("deterministic answers and scoring", () => {
     const record = recordWith("demonstrated");
     record.concepts[id].uncertain = true;
     for (const question of questions) {
-      const result = assessQuestion(record, question);
+      const result = assessQuestion(record, question, defaultTopic);
       for (const criterion of question.criteria.filter((c) => c.requires.includes(id))) {
         expect(result.earnedCriteria).not.toContain(criterion.id);
       }
@@ -68,7 +69,7 @@ describe("deterministic answers and scoring", () => {
     const record = recordWith("demonstrated");
     record.misconceptions.unrelated = { origin: "student", status: "active", evidence: [], changed_in_version: 1 };
     for (const question of questions) {
-      const result = assessQuestion(record, question);
+      const result = assessQuestion(record, question, defaultTopic);
       expect(result.outcome).toBe("correct");
       expect(result.points).toBe(result.maxPoints);
       expect(result.blocking).toEqual({ concepts: [], misconceptions: [] });
@@ -79,14 +80,14 @@ describe("deterministic answers and scoring", () => {
   it("blocks a student assertion even after the seeded belief has resolved", () => {
     const record = recordWith("demonstrated");
     record.misconceptions["student:recursion_runs_forever"] = { origin: "student", status: "active", evidence: [], changed_in_version: 1 };
-    expect(assessQuestion(record, p1).outcome).toBe("misconception");
+    expect(assessQuestion(record, p1, defaultTopic).outcome).toBe("misconception");
   });
 
   it("does not mutate pinned records/questions and is repeatable", () => {
     const record = deepFreeze(recordWith("partially_taught", true));
     const question = deepFreeze(structuredClone(p1));
     const before = JSON.stringify({ record, question });
-    expect(assessQuestion(record, question)).toEqual(assessQuestion(record, question));
+    expect(assessQuestion(record, question, defaultTopic)).toEqual(assessQuestion(record, question, defaultTopic));
     expect(JSON.stringify({ record, question })).toBe(before);
   });
 
@@ -96,7 +97,7 @@ describe("deterministic answers and scoring", () => {
         const record = recordWith(states, active);
         for (const concept of Object.values(record.concepts)) concept.uncertain = uncertain;
         for (const question of questions) {
-          const result = assessQuestion(record, question);
+          const result = assessQuestion(record, question, defaultTopic);
           // Independent oracle derived from authored requirements, not the implementation's helpers.
           const expectedEarned = question.criteria.filter((c) => c.requires.every((id) =>
             states[CONCEPT_IDS.indexOf(id)] === "demonstrated" && !uncertain)
@@ -132,16 +133,16 @@ describe("authored teaching probes", () => {
   it("walks concept order then returns null after full coverage", () => {
     const record = recordWith("not_taught");
     for (const id of CONCEPT_IDS) {
-      expect(selectProbe(record)?.id).toBe(id);
+      expect(selectProbe(record, defaultTopic)?.id).toBe(id);
       record.concepts[id].state = "demonstrated";
     }
-    expect(selectProbe(record)).toBeNull();
+    expect(selectProbe(record, defaultTopic)).toBeNull();
   });
   it("asks again about partial or uncertain coverage", () => {
     const record = recordWith("demonstrated");
     record.concepts.base_case.state = "partially_taught";
-    expect(selectProbe(record)).toEqual({ id: "base_case", text: "How does it know when to stop?" });
+    expect(selectProbe(record, defaultTopic)).toEqual({ id: "base_case", text: "Explain the concept of base_case" });
     record.concepts.recursive_call.uncertain = true;
-    expect(selectProbe(record)?.id).toBe("recursive_call");
+    expect(selectProbe(record, defaultTopic)?.id).toBe("recursive_call");
   });
 });

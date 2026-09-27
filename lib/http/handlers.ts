@@ -57,7 +57,7 @@ async function parseBody<T>(request: Request, schema: z.ZodType<T>): Promise<T |
   return parsed.data;
 }
 
-const SessionsBody = z.object({ topicId: z.string().min(1).max(100).optional() }).strict();
+const SessionsBody = z.object({ topicId: z.string().uuid().optional() }).strict();
 const MessagesBody = z
   .object({ text: z.string().min(1).max(2000), inputMode: z.enum(["typed", "voice"]).optional(), expectedRevision: z.number().int() })
   .strict();

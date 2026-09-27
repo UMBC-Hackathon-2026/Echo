@@ -80,7 +80,6 @@ describe("validateContent — deliberately broken copies prove each rule fires",
 
   it("[concepts] a criterion requiring an unknown concept", () => {
     const input = fresh();
-    // @ts-expect-error deliberately injecting an invalid concept id
     input.forms[0].questions[0].criteria[0].requires = ["not_a_concept"];
     expect(fired(input, "[concepts]")).toBe(true);
   });

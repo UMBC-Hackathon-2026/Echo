@@ -1,6 +1,5 @@
 import "server-only";
 import type { ConceptId, ConceptState, Span } from "@/lib/contracts";
-import { CONCEPT_IDS } from "@/lib/contracts";
 import type { Evaluator, EvaluateArgs, EvaluationResult } from "./evaluator";
 import type { ValidatedEvaluation } from "./validate";
 import type { StudentTurn } from "./provenance";
@@ -40,10 +39,15 @@ function firstMatch(turns: readonly StudentTurn[], pattern: RegExp): Span | null
 }
 
 export class ScriptedEvaluator implements Evaluator {
-  async evaluate({ sessionId, turns }: EvaluateArgs): Promise<EvaluationResult> {
+  async evaluate({ sessionId, turns, topic }: EvaluateArgs): Promise<EvaluationResult> {
+    if (!topic) throw new Error("Missing topic");
     const concepts = {} as ValidatedEvaluation["concepts"];
-    for (const id of CONCEPT_IDS) {
-      const span = firstMatch(turns, CONCEPT_PATTERNS[id]);
+    
+    for (const c of topic.rubricData.concepts) {
+      const id = c.id;
+      // In tests, if the concept ID matches our known ones, use the pattern, else fallback to the ID itself
+      const pattern = CONCEPT_PATTERNS[id] || new RegExp(id, "i");
+      const span = firstMatch(turns, pattern);
       const state: ConceptState = span ? "demonstrated" : "not_taught";
       concepts[id] = {
         state,

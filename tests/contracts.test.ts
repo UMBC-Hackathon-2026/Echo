@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   EvaluatorOutput,
-  ValidatedConceptEntries,
   ConceptState,
 } from "@/lib/contracts";
 
@@ -51,29 +50,7 @@ describe("EvaluatorOutput contract", () => {
   });
 });
 
-describe("ValidatedConceptEntries", () => {
-  const known = [
-    "recursive_call",
-    "smaller_subproblem",
-    "base_case",
-    "progress_toward_base_case",
-    "return_path",
-  ];
 
-  it("accepts the five known ids, once each", () => {
-    expect(ValidatedConceptEntries.safeParse(known.map((id) => concept(id))).success).toBe(true);
-  });
-
-  it("rejects an unknown concept id", () => {
-    expect(ValidatedConceptEntries.safeParse([concept("made_up")]).success).toBe(false);
-  });
-
-  it("rejects a duplicate concept id", () => {
-    expect(
-      ValidatedConceptEntries.safeParse([concept("base_case"), concept("base_case")]).success,
-    ).toBe(false);
-  });
-});
 
 describe("ConceptState enum", () => {
   it("accepts the three valid states", () => {

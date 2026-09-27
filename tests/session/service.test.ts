@@ -159,7 +159,7 @@ describe.skipIf(!hasTestDb)("session service (DATABASE_URL_TEST)", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
     await expect(
       db.insert(schema.assessmentAttempts).values({
-        id: randomUUID(), sessionId: B.sessionId, attemptNo: 1, formId: "recursion.A", formVersion: "x",
+        id: randomUUID(), sessionId: B.sessionId, attemptNo: 1, formId: "dynamic.A", formVersion: "x",
         gateVersion: "x", rubricVersion: "x", learningRecordId: aRecordId, status: "in_progress", expectedResults: 4,
       }),
     ).rejects.toThrow();
@@ -179,7 +179,7 @@ describe.skipIf(!hasTestDb)("session service (DATABASE_URL_TEST)", () => {
     const att = await s.createAttempt({ sessionId, ownerToken, expectedRevision: v2.revision, recordId: v1RecordId, idempotencyKey: "a1" });
     const rows = await db.select().from(schema.assessmentAttempts).where(eq(schema.assessmentAttempts.sessionId, sessionId));
     expect(rows[0].learningRecordId).toBe(v1RecordId);
-    const p1 = att.attempts[0].results.find((r) => r.questionId === "rec.A.P1");
+    const p1 = att.attempts[0].results.find((r) => r.questionId === "dyn.A.P1");
     expect(p1?.outcome).not.toBe("correct"); // base_case not demonstrated in v1
     const again = await s.getSessionState({ sessionId, ownerToken });
     expect(JSON.stringify(again.attempts[0])).toBe(JSON.stringify(att.attempts[0]));
@@ -194,7 +194,7 @@ describe.skipIf(!hasTestDb)("session service (DATABASE_URL_TEST)", () => {
     const t = await s.submitTeaching({ sessionId, ownerToken, text: "stops at 0", expectedRevision: 0, idempotencyKey: "m1" });
     const att = await s.createAttempt({ sessionId, ownerToken, expectedRevision: t.revision, idempotencyKey: "a1" });
     const attemptId = att.attempts[0].id;
-    await db.delete(schema.questionResults).where(and(eq(schema.questionResults.attemptId, attemptId), eq(schema.questionResults.questionId, "rec.A.P1")));
+    await db.delete(schema.questionResults).where(and(eq(schema.questionResults.attemptId, attemptId), eq(schema.questionResults.questionId, "dyn.A.P1")));
     await expect(s.completeAttempt({ sessionId, ownerToken, attemptId, expectedRevision: att.revision, idempotencyKey: "c1" })).rejects.toBeInstanceOf(ConflictError);
   });
 

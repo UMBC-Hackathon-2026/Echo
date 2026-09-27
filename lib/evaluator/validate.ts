@@ -1,7 +1,6 @@
 import "server-only";
-import { CONCEPT_IDS, EvaluatorOutput, ValidatedConceptEntries } from "@/lib/contracts";
 import type { ConceptId, ConceptRecordEntry, Span } from "@/lib/contracts";
-import { SEEDED_MISCONCEPTIONS } from "@/lib/content/recursion/misconceptions";
+
 import { indexStudentTurns, resolveEvidenceList, turnNumber, type StudentTurn } from "./provenance";
 
 export const VALIDATOR_VERSION = "1.0.0";
@@ -22,22 +21,51 @@ export interface ValidatedEvaluation {
 /** Throws on malformed model output; callers must mark evaluation failed, never apply part. */
 export function validateEvaluation(
   raw: unknown,
-  input: { sessionId: string; turns: readonly StudentTurn[] },
+  input: { sessionId: string; turns: readonly StudentTurn[]; topic: { id: string; name: string; rubricData: any } },
 ): ValidatedEvaluation {
-  const output = EvaluatorOutput.parse(raw);
-  const entries = ValidatedConceptEntries.parse(output.concepts);
-  const knownMisconceptions = new Set(SEEDED_MISCONCEPTIONS.map((m) => m.id));
-  if (output.misconception_reports.some((r) => !knownMisconceptions.has(r.id))) {
+  // We skip EvaluatorOutput.parse and ValidatedConceptEntries.parse 
+  // because the schema is now dynamic. We do manual structural validation.
+  const output = raw as any;
+  if (!output || typeof output !== "object" || !Array.isArray(output.concepts) || !Array.isArray(output.misconception_reports)) {
+    throw new Error("Invalid output shape");
+  }
+
+  const allowedKeys = new Set(["concepts", "misconception_reports"]);
+  for (const k of Object.keys(output)) {
+    if (!allowedKeys.has(k)) throw new Error("Extra key: " + k);
+  }
+
+  const knownConceptIds = new Set(input.topic.rubricData.concepts.map((c: any) => c.id));
+  const seenConcepts = new Set();
+  for (const c of output.concepts) {
+    if (seenConcepts.has(c.id)) throw new Error("Duplicate concept");
+    seenConcepts.add(c.id);
+    if (!knownConceptIds.has(c.id)) throw new Error("Unknown concept");
+    if (!["not_taught", "partially_taught", "demonstrated"].includes(c.state)) throw new Error("Bad state");
+    if (c.evidence) {
+      if (c.evidence.length > 3) throw new Error("Too many spans");
+      for (const span of c.evidence) {
+        if (!span.quote || span.quote === "") throw new Error("Empty quote");
+      }
+    }
+  }
+
+  const knownMisconceptions = new Set(input.topic.rubricData.misconceptions.map((m: any) => m.id));
+  if (output.misconception_reports.some((r: any) => !knownMisconceptions.has(r.id))) {
     throw new Error("Unknown misconception id");
   }
+  
+  const conceptIds = input.topic.rubricData.concepts.map((c: any) => c.id);
   const turns = indexStudentTurns(input.sessionId, input.turns);
-  const concepts = Object.fromEntries(CONCEPT_IDS.map((id) => {
-    const proposed = entries.find((c) => c.id === id);
+  
+  const entries = output.concepts;
+  const concepts = Object.fromEntries(conceptIds.map((id: string) => {
+    const proposed = entries.find((c: any) => c.id === id);
     if (!proposed) return [id, { state: "not_taught", evidence: [], conflicts: [], uncertain: false, reason: "not assessed" }];
-    const evidence = resolveEvidenceList(proposed.evidence, turns);
-    const conflicts = resolveEvidenceList(proposed.conflicts, turns);
+    const evidence = resolveEvidenceList(proposed.evidence || [], turns);
+    const conflicts = resolveEvidenceList(proposed.conflicts || [], turns);
     let state = proposed.state;
-    let reason = proposed.reason;
+    let reason = proposed.reason || "";
     if (state !== "not_taught" && evidence.length === 0) {
       state = "not_taught";
       reason = "No verifiable evidence in the cited student turns.";
@@ -53,8 +81,8 @@ export function validateEvaluation(
     return [id, { state, evidence, conflicts, uncertain, reason }];
   })) as Record<ConceptId, ConceptRecordEntry>;
 
-  const reports = output.misconception_reports.flatMap((report) => {
-    const evidence = resolveEvidenceList(report.evidence, turns);
+  const reports = output.misconception_reports.flatMap((report: any) => {
+    const evidence = resolveEvidenceList(report.evidence || [], turns);
     return evidence.length ? [{ ...report, evidence }] : [];
   });
   return {

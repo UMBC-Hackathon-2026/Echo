@@ -1,3 +1,4 @@
+import { defaultTopic } from "../helpers/phase2";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const { generateContent } = vi.hoisted(() => ({ generateContent: vi.fn() }));
 vi.mock("@google/genai", () => ({
@@ -9,13 +10,13 @@ beforeEach(() => generateContent.mockReset().mockResolvedValue({ text: "not JSON
 describe("provider-call cap", () => {
   it("uses only one provider call when one call remains, even for invalid output", async () => {
     const ev = new GeminiEvaluator({ apiKey: "fake", model: "fake", maxAttempts: 1 });
-    const result = await ev.evaluate({ sessionId: "test", turns: [] });
+    const result = await ev.evaluate({ sessionId: "test", topic: defaultTopic, turns: [] });
     expect(result).toEqual({ ok: false, reason: "invalid_output", attempts: 1 });
     expect(generateContent).toHaveBeenCalledTimes(1);
   });
   it("retains the two-attempt default", async () => {
     const ev = new GeminiEvaluator({ apiKey: "fake", model: "fake" });
-    const result = await ev.evaluate({ sessionId: "test", turns: [] });
+    const result = await ev.evaluate({ sessionId: "test", topic: defaultTopic, turns: [] });
     expect(result.attempts).toBe(2);
     expect(generateContent).toHaveBeenCalledTimes(2);
   });
