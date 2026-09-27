@@ -44,3 +44,7 @@ next-env.d.ts
 # Live evaluator reports (may contain fixture data, never keys)
 reports/
 ARCHITECTURE.txt
+
+# Playwright test artifacts (videos, traces, HTML report)
+test-results/
+playwright-report/
