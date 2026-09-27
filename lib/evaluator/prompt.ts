@@ -12,7 +12,7 @@ import { SEEDED_MISCONCEPTIONS } from "@/lib/content/recursion/misconceptions";
  *
  * Bump PROMPT_VERSION on any wording change; record tuning results in PHASE3.md.
  */
-export const PROMPT_VERSION = "p1";
+export const PROMPT_VERSION = "p2";
 
 export function buildSystemInstruction(): string {
   const concepts = PROBE_ORDER.map((id) => {
