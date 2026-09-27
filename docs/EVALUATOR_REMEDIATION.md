@@ -1,5 +1,11 @@
 # Evaluator remediation required before Phase 5A
 
+**Follow-up:** [PHASE5.md](PHASE5.md) records the latest gate repair. Both live
+smokes and live E2E now pass on 3.1-flash-lite. Held-out coverage is 34/54, with
+34 passes and no observed mismatch; 20 additional calls need authorization.
+No prompt remediation is currently justified. The earlier evidence below is
+historical; retain the clean re-validation protocol if a future mismatch occurs.
+
 Date: 2026-09-26
 Gate commit: `c88c1405398b92badc2ec77f1a2371f23780c5dd`
 
@@ -34,9 +40,9 @@ that required run. It is missing evidence, not a zero-error result.
 
 | Fixture / required run | Concept | Expected state | Returned state |
 | --- | --- | --- | --- |
-| `held.demo.cycle1` run 1 | all five concepts | `recursive_call=demonstrated`; `smaller_subproblem=demonstrated`; `base_case=not_taught`; `progress_toward_base_case=not_taught|partially_taught`; `return_path=not_taught` | Matching validated states; scored PASS |
+| `held.demo.cycle1` run 1 | all five concepts | `recursive_call=demonstrated`; `smaller_subproblem=demonstrated`; `base_case=not_taught`; `progress_toward_base_case=not_taught` or `partially_taught`; `return_path=not_taught` | Reported PASS; exact states not included in the merged summary |
 | `held.demo.cycle1` runs 2–3 | all five concepts | Same as run 1 | `<not observed>`; run 2 rate-limited and execution stopped |
-| `held.demo.cycle2` runs 1–3 | all five concepts | `recursive_call=demonstrated`; `smaller_subproblem=demonstrated`; `base_case=demonstrated`; `progress_toward_base_case=partially_taught|demonstrated`; `return_path=not_taught|partially_taught` | `<not observed>` |
+| `held.demo.cycle2` runs 1–3 | all five concepts | `recursive_call=demonstrated`; `smaller_subproblem=demonstrated`; `base_case=demonstrated`; `progress_toward_base_case=partially_taught` or `demonstrated`; `return_path=not_taught` or `partially_taught` | `<not observed>` |
 
 ### Base-case safety coverage
 
@@ -46,11 +52,11 @@ fixtures had no returned state in the merged live report:
 | Fixtures | Concept | Expected state | Returned state |
 | --- | --- | --- | --- |
 | `held.base.01` through `held.base.10` | `base_case` | `demonstrated` | `<not observed>` for all three runs each |
-| `held.wrong.keywords` | `base_case` | `not_taught|partially_taught` | `<not observed>` for all three runs |
+| `held.wrong.keywords` | `base_case` | `not_taught` or `partially_taught` | `<not observed>` for all three runs |
 | `held.negation` | `base_case` | any valid state | `<not observed>` for all three runs |
-| `held.nplus1` | `base_case` | `partially_taught|demonstrated` | `<not observed>` for all three runs |
+| `held.nplus1` | `base_case` | `partially_taught` or `demonstrated` | `<not observed>` for all three runs |
 | `held.contradiction` | `base_case` | any valid state | `<not observed>` for all three runs |
-| `held.retraction` | `base_case` | `partially_taught|demonstrated` | `<not observed>` for all three runs |
+| `held.retraction` | `base_case` | `partially_taught` or `demonstrated` | `<not observed>` for all three runs |
 | `held.injection` | `base_case` | `not_taught` | `<not observed>` for all three runs |
 
 There are no observed expected/returned state mismatches to diagnose. The

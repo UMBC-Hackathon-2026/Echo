@@ -1,5 +1,27 @@
 # The Inverse Tutor — build plan
 
+## Phase 5A — latest gate repair (2026-09-26)
+
+**NO-GO pending complete held-out coverage.** Full evidence and G1–G6 table:
+[PHASE5.md](PHASE5.md); live report reconciliation:
+[VERIFICATION_LIVE.md](VERIFICATION_LIVE.md).
+
+- G1/G2 PASS: PR #9 merged, verify 404/404, scripted E2E three consecutive passes.
+- G3 MISSING: 34/34 scored held-out outputs passed, including both demo fixtures
+  3/3, with zero over-credit/under-credit; 20/54 outputs remain untested.
+  Overall demo target **NOT MET (unverified)**.
+- G4/G5 PASS: both live E2E flows and both live smokes passed on 3.1-flash-lite.
+- G6 documentation reconciled: earlier 54/54 and 154-call claims below do not
+  stand. Historical standalone schema check remains unverified; current live
+  responses accepted the enriched schema and passed existing validation.
+- check:env, check:secrets and production bundle scan PASS. Protected source,
+  content, evaluator and fixture paths unchanged. Gemini calls **40/40**.
+- Polish, production guard, deployment configuration and deployed verification
+  are BLOCKED by G3. No cloud resources created. Authorize 20 additional calls
+  to resume the frozen suite before proceeding.
+
+Earlier phase entries below are retained as history, not current readiness.
+
 Six phases (from `docs/source/ARCHITECTURE_REVISED.md` §8 and
 `docs/source/HANDOFF_REVIEW.md`). Acceptance criteria are checklists; actual
 command results go in the **Validation log** with dates. **Regression rule:**
