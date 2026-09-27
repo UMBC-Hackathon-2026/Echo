@@ -173,10 +173,10 @@ We propose a pilot with UMBC introductory programming students, opt-in, across o
 
 Contributors and repository collaborators, per commit history and GitHub:
 
-- **aahanrembersu07**
+- **Aahan Remberse** ([aahanrembersu07](https://github.com/aahanrembersu07))
 - **Arik Gershman** ([arikgershman](https://github.com/arikgershman))
 - **Aadi Rajan** ([RajanAadi](https://github.com/RajanAadi))
-- **wfderrick** — listed as a repository collaborator; no commits under this username were found in the local history at the documented commit.
+- **William Derrick** ([wfderrick](https://github.com/wfderrick)) — listed as a repository collaborator; no commits under this username were found in the local history at the documented commit.
 
 <!-- TODO(confirm): actual names/roles beyond GitHub username/commit author, if different from the above. -->
 
