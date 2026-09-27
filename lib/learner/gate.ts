@@ -63,15 +63,35 @@ export function assessQuestion(record: LearningRecord, question: AssessmentQuest
 
   // Dynamic heuristic
   const conceptIds = topic.rubricData.concepts.map((c) => c.id);
+
+  /** Authored display text for an id — NEVER returns a raw internal id. */
+  const displayText = (entry: { name?: string; belief?: string; description?: string } | undefined): string | null => {
+    for (const candidate of [entry?.belief, entry?.name, entry?.description]) {
+      if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+    }
+    return null;
+  };
+  const misconceptionText = (id: string) => displayText(topic.rubricData.misconceptions.find((m) => m.id === id));
+  const conceptName = (id: string) => displayText(topic.rubricData.concepts.find((c) => c.id === id));
+
+  // Only misconceptions this question actually declares are relevant. Generated
+  // questions carry no per-question scoping today, so default to NOT blocking
+  // rather than attaching a belief that has nothing to do with the question.
+  const declared = (question as { relevantMisconceptions?: unknown }).relevantMisconceptions;
+  const relevantActive = (Array.isArray(declared) ? declared.filter((id): id is string => typeof id === "string") : [])
+    .filter((id) => active.has(id));
+
   let outcome: QuestionResult["outcome"] = "correct";
   let answerText = question.answerKey?.expectedAnswer || "Yes";
   const blockingConcepts: string[] = [];
   const blockingMisconceptions: string[] = [];
-  
-  if (active.size > 0) {
+
+  if (relevantActive.length > 0) {
     outcome = "misconception";
-    answerText = "I think " + [...active].join(", ");
-    blockingMisconceptions.push(...active);
+    const beliefs = relevantActive.map(misconceptionText).filter((t): t is string => t !== null);
+    // Malformed rubric (no authored belief text) must never leak the id.
+    answerText = beliefs.length ? `I think ${beliefs.join(" Also, ")}` : "I'm not sure about that.";
+    blockingMisconceptions.push(...relevantActive);
   } else {
     for (const cid of conceptIds) {
        if (!record.concepts[cid] || record.concepts[cid].state !== "demonstrated") {
@@ -81,7 +101,15 @@ export function assessQuestion(record: LearningRecord, question: AssessmentQuest
        }
     }
   }
-  
+
+  // Anything blocking must produce a next step, or the review row would claim
+  // "Met every criterion" next to a non-correct outcome.
+  const nextStep = blockingConcepts.length > 0
+    ? `Teach ${conceptName(blockingConcepts[0]) ?? "the missing concept"}`
+    : blockingMisconceptions.length > 0
+      ? "Your learner still holds a belief that blocks this answer. Correct it directly."
+      : null;
+
   return {
     questionId: question.id,
     pairId: question.pairId || question.id,
@@ -92,6 +120,6 @@ export function assessQuestion(record: LearningRecord, question: AssessmentQuest
     fragmentIds: [],
     answerText,
     blocking: { concepts: blockingConcepts, misconceptions: blockingMisconceptions },
-    nextStep: blockingConcepts.length > 0 ? "Teach " + blockingConcepts[0] : null
+    nextStep,
   };
 }

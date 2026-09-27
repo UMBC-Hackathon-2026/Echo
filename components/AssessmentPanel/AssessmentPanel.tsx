@@ -192,9 +192,9 @@ export function AssessmentPanel() {
                       Reteach this
                     </button>
                   </div>
-                ) : (
+                ) : r.outcome === "correct" ? (
                   <p className="mt-2 text-xs text-green-700 dark:text-green-400">Met every criterion</p>
-                )}
+                ) : null}
 
                 {(r.blocking.concepts.length > 0 || r.blocking.misconceptions.length > 0) && (
                   <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
