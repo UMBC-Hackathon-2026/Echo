@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import type { Pool } from "pg";
@@ -85,14 +85,25 @@ describe.skipIf(!hasTestDb)("session service (DATABASE_URL_TEST)", () => {
 
   // Gate 9 — failure paths
   it("preserves text and blocks attempts on evaluator failure; retry then succeeds", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const fake = new FakeEvaluator();
     const s = svc(fake);
     const { sessionId, ownerToken } = await s.createSession({});
-    fake.push({ ok: false, reason: "timeout", attempts: 2 });
+    fake.push({
+      ok: false,
+      reason: "provider_error",
+      attempts: 2,
+      diagnostic: { stage: "provider", code: "INVALID_ARGUMENT", message: "Request contains an invalid argument.", providerStatus: 400 },
+    });
     const r = await s.submitTeaching({ sessionId, ownerToken, text: "my explanation", expectedRevision: 0, idempotencyKey: "m1" });
     const student = r.messages.find((m) => m.role === "student");
     expect(student?.evalStatus).toBe("failed");
+    expect(student?.evalError).toBe("provider_error:provider:400:INVALID_ARGUMENT");
     expect(student?.content).toBe("my explanation");
+    expect(log).toHaveBeenCalledWith("teach_evaluation_failed", expect.objectContaining({
+      operation: "submit", stage: "provider", code: "INVALID_ARGUMENT", reason: "provider_error", providerStatus: 400,
+    }));
+    expect(JSON.stringify(log.mock.calls)).not.toContain("my explanation");
     expect(r.record.version).toBe(0);
     await expect(s.createAttempt({ sessionId, ownerToken, expectedRevision: r.revision, idempotencyKey: "a1" })).rejects.toBeInstanceOf(ConflictError);
 
@@ -100,6 +111,7 @@ describe.skipIf(!hasTestDb)("session service (DATABASE_URL_TEST)", () => {
     const r2 = await s.retryEvaluation({ sessionId, ownerToken, messageId: student!.id, expectedRevision: r.revision });
     expect(r2.messages.find((m) => m.role === "student")?.evalStatus).toBe("evaluated");
     expect(r2.record.version).toBe(1);
+    log.mockRestore();
   });
 
   // Gate 7 — transitions

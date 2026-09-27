@@ -20,9 +20,16 @@ export interface EvaluateArgs {
   signal?: AbortSignal;
 }
 
+export interface EvaluationFailureDiagnostic {
+  stage: "provider" | "timeout" | "response_parse" | "response_validation";
+  code: string;
+  message: string;
+  providerStatus?: number;
+}
+
 export type EvaluationResult =
   | { ok: true; evaluation: ValidatedEvaluation; model: string; latencyMs: number; attempts: number }
-  | { ok: false; reason: EvaluationFailure; attempts: number };
+  | { ok: false; reason: EvaluationFailure; attempts: number; diagnostic?: EvaluationFailureDiagnostic };
 
 export interface Evaluator {
   evaluate(args: EvaluateArgs): Promise<EvaluationResult>;

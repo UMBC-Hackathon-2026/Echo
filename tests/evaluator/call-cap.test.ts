@@ -11,9 +11,19 @@ describe("provider-call cap", () => {
   it("uses only one provider call when one call remains, even for invalid output", async () => {
     const ev = new GeminiEvaluator({ apiKey: "fake", model: "fake", maxAttempts: 1 });
     const result = await ev.evaluate({ sessionId: "test", topic: defaultTopic, turns: [] });
-    expect(result).toEqual({ ok: false, reason: "invalid_output", attempts: 1 });
+    expect(result).toEqual({
+      ok: false,
+      reason: "invalid_output",
+      attempts: 1,
+      diagnostic: {
+        stage: "response_parse",
+        code: "invalid_json",
+        message: "The evaluator returned malformed JSON.",
+      },
+    });
     expect(generateContent).toHaveBeenCalledTimes(1);
   });
+
   it("retains the two-attempt default", async () => {
     const ev = new GeminiEvaluator({ apiKey: "fake", model: "fake" });
     const result = await ev.evaluate({ sessionId: "test", topic: defaultTopic, turns: [] });
