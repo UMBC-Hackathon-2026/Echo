@@ -86,6 +86,12 @@ export function TeachPanel() {
                   Retry
                 </button>
               )}
+              {m.role === "learner" && state.voice.enabled && (
+                <div className="mt-2 flex gap-3">
+                  <button type="button" onClick={() => void actions.playVoice("learner_message", m.id)} className="text-xs text-blue-600 underline dark:text-blue-400">Replay</button>
+                  {state.voice.speaking && <button type="button" onClick={() => actions.stopVoice()} className="text-xs text-red-600 underline dark:text-red-400">Stop</button>}
+                </div>
+              )}
             </li>
           );
         })}

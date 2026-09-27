@@ -19,6 +19,23 @@ function Boot() {
   return null;
 }
 
+function VoiceToggle() {
+  const { state, actions } = useSession();
+  return (
+    <div className="flex items-center gap-2">
+      <label className="text-sm font-medium flex items-center gap-1 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={state.voice.enabled}
+          onChange={() => actions.toggleVoice()}
+        />
+        Voice Output
+      </label>
+      {state.voice.speaking && <span aria-label="Speaking" className="text-xl leading-none">🗣️</span>}
+    </div>
+  );
+}
+
 function ErrorBanner() {
   const { state } = useSession();
   const err = state.errors.at(-1);
@@ -67,7 +84,10 @@ export default function SessionPage() {
             <h1>The Inverse Tutor</h1>
             <p className="session-subtitle">Teach it. Test it. Trace what changed.</p>
           </div>
-          <HowItWorks />
+          <div className="flex items-center gap-4">
+            <VoiceToggle />
+            <HowItWorks />
+          </div>
           <ErrorBanner />
         </header>
         <div className="session-grid">

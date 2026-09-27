@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, createElement, useContext, useReducer, useEffect, type ReactNode } from "react";
+import { createContext, createElement, useContext, useReducer, useEffect, useRef, type ReactNode } from "react";
 import { api, asApiError, newIdempotencyKey } from "@/lib/client/api";
 import { CONCEPT_IDS } from "@/lib/contracts";
 import type { ConceptId, RecordDTO, SessionDTO, ComparisonRowDTO } from "@/lib/contracts";
@@ -44,7 +44,9 @@ type Action =
   | { type: "SELECT_CONCEPT"; payload: { conceptId?: ConceptId } }
   | { type: "SELECT_QUESTION"; payload: { questionId?: string } }
   | { type: "REVEAL_NEXT" }
-  | { type: "SET_COMPARISON"; payload: ComparisonRowDTO[] };
+  | { type: "SET_COMPARISON"; payload: ComparisonRowDTO[] }
+  | { type: "SET_VOICE_ENABLED"; payload: boolean }
+  | { type: "SET_SPEAKING"; payload: boolean };
 
 function reducer(state: SessionState, action: Action): SessionState {
   switch (action.type) {
@@ -78,6 +80,10 @@ function reducer(state: SessionState, action: Action): SessionState {
     }
     case "SET_COMPARISON":
       return { ...state, comparison: action.payload };
+    case "SET_VOICE_ENABLED":
+      return { ...state, voice: { ...state.voice, enabled: action.payload } };
+    case "SET_SPEAKING":
+      return { ...state, voice: { ...state.voice, speaking: action.payload } };
     default:
       return state;
   }
@@ -95,6 +101,9 @@ export interface SessionActions {
   selectQuestion(id?: string): void;
   revealNext(): void;
   beginReteach(questionId: string, nextStepHint: string): Promise<void>;
+  toggleVoice(): void;
+  playVoice(source: "learner_message" | "question_result", id: string): Promise<void>;
+  stopVoice(): void;
 }
 
 interface Ctx { state: SessionState; actions: SessionActions }
@@ -102,6 +111,15 @@ const SessionContext = createContext<Ctx | null>(null);
 
 export function SessionProvider({ sessionId, children }: { sessionId: string; children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, sessionId, initial);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastPlayedRef = useRef<{ msgId?: string, revealIndex?: number }>({});
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("it_voice_enabled");
+      if (stored === "true") dispatch({ type: "SET_VOICE_ENABLED", payload: true });
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
     if (state.phase === "comparing" && !state.comparison) {
@@ -110,6 +128,8 @@ export function SessionProvider({ sessionId, children }: { sessionId: string; ch
         .catch(() => {});
     }
   }, [state.phase, state.comparison, state.sessionId]);
+
+
 
   // Recreated each render so callbacks always close over the current state; they
   // are only invoked from event handlers/effects, never read during render.
@@ -140,8 +160,69 @@ export function SessionProvider({ sessionId, children }: { sessionId: string; ch
     selectQuestion: (id) => dispatch({ type: "SELECT_QUESTION", payload: { questionId: id } }),
     revealNext: () => dispatch({ type: "REVEAL_NEXT" }),
     beginReteach: (questionId, nextStepHint) => run("teach", () => api.reteach(state.sessionId, { questionId, nextStepHint, expectedRevision: state.revision, idempotencyKey: newIdempotencyKey() })),
+    toggleVoice: () => {
+      const next = !state.voice.enabled;
+      dispatch({ type: "SET_VOICE_ENABLED", payload: next });
+      if (!next && audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+        dispatch({ type: "SET_SPEAKING", payload: false });
+      }
+      try { localStorage.setItem("it_voice_enabled", String(next)); } catch { /* ignore */ }
+    },
+    playVoice: async (source, id) => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
+      dispatch({ type: "SET_SPEAKING", payload: true });
+      try {
+        const res = await fetch("/api/voice/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source, id }) });
+        if (!res.ok) throw new Error("Voice failed");
+        const blob = await res.blob();
+        const audio = new Audio(URL.createObjectURL(blob));
+        audioRef.current = audio;
+        audio.onended = () => dispatch({ type: "SET_SPEAKING", payload: false });
+        audio.onerror = () => dispatch({ type: "SET_SPEAKING", payload: false });
+        await audio.play();
+      } catch (e) {
+        dispatch({ type: "SET_SPEAKING", payload: false });
+        if (e instanceof Error && e.name !== "NotAllowedError") {
+          dispatch({ type: "ERROR", payload: { kind: "network", message: "Voice synthesis failed" } });
+        }
+      }
+    },
+    stopVoice: () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
+      dispatch({ type: "SET_SPEAKING", payload: false });
+    }
   };
 
+  useEffect(() => {
+    if (!state.voice.enabled || state.voice.speaking) return;
+
+    const lastMsg = state.messages.at(-1);
+    if (lastMsg && lastMsg.role === "learner" && lastPlayedRef.current.msgId !== lastMsg.id) {
+       lastPlayedRef.current.msgId = lastMsg.id;
+       setTimeout(() => void actions.playVoice("learner_message", lastMsg.id), 0);
+       return;
+    }
+
+    const active = state.attempts.find((a) => a.id === state.activeAttemptId);
+    if (active && state.revealIndex > 0 && lastPlayedRef.current.revealIndex !== state.revealIndex) {
+       lastPlayedRef.current.revealIndex = state.revealIndex;
+       if (state.revealIndex <= active.results.length) {
+         const rId = active.results[state.revealIndex - 1].id;
+         setTimeout(() => void actions.playVoice("question_result", rId), 0);
+       }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.messages, state.activeAttemptId, state.revealIndex, state.voice.enabled]);
+
+  // eslint-disable-next-line react-hooks/refs
   return createElement(SessionContext.Provider, { value: { state, actions } }, children);
 }
 

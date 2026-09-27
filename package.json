@@ -27,6 +27,7 @@
     "verify": "npm run lint && npm run typecheck && npm run test && npm run check:content && npm run check:secrets && npm run build && npm run check:bundle && npm run check:prod-guard"
   },
   "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.69.0",
     "@google/genai": "^2.24.0",
     "drizzle-orm": "^0.45.3",
     "next": "16.3.6",

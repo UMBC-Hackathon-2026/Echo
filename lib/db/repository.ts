@@ -161,7 +161,8 @@ export async function getAttemptsWithResults(exec: Executor, sessionId: string):
       .orderBy(asc(schema.questionResults.questionId));
     const results: ResultRow[] = resultRows.map((r) => {
       const question = r.questionSnapshot as Question;
-      const result: QuestionResult = {
+      const result: QuestionResult & { id: string } = {
+        id: r.id,
         questionId: r.questionId,
         pairId: r.pairId,
         outcome: r.outcome,

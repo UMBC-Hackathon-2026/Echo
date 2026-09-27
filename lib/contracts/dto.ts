@@ -30,6 +30,7 @@ export interface QuestionReview {
 }
 
 export interface QuestionResultDTO {
+  id: string;
   questionId: string;
   pairId: string;
   outcome: Outcome;

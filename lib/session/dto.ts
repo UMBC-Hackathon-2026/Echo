@@ -68,13 +68,14 @@ export function toRecordDTO(record: LearningRecord): RecordDTO {
 
 /** A persisted result plus its frozen question snapshot. */
 export interface ResultRow {
-  result: QuestionResult;
+  result: QuestionResult & { id?: string };
   question: Question;
 }
 
 export function toQuestionResultDTO(row: ResultRow, includeReview: boolean): QuestionResultDTO {
   const q = row.question;
   const dto: QuestionResultDTO = {
+    id: row.result.id ?? "unknown",
     questionId: row.result.questionId,
     pairId: row.result.pairId,
     outcome: row.result.outcome,

@@ -82,6 +82,7 @@ const attempt: AttemptDTO = {
   pinnedRecord: record,
   results: [
     {
+      id: "mock-result-1",
       questionId: "rec.A.P1",
       pairId: "P1",
       outcome: "misconception",
