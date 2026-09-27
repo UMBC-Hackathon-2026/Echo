@@ -9,7 +9,7 @@ test("@scripted topic extraction failure preserves documents for retry", async (
   await page.goto("/");
   await page.getByLabel("Topic Name").fill("Photosynthesis");
   await page.locator('input[type="file"]').setInputFiles({ name: "notes.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7\nmock") });
-  await page.getByRole("button", { name: "Start teaching" }).click();
+  await page.getByRole("button", { name: "Start teaching", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toHaveText("We couldn't extract enough clear concepts from these documents. Please try adding more structured study guides.");
   await page.getByRole("button", { name: "Review documents and try again" }).click();
   await expect(page.getByLabel("Topic Name")).toHaveValue("Photosynthesis");
@@ -26,7 +26,7 @@ test("@scripted upload rate limit gives a retry delay without automatic retries"
   await page.goto("/");
   await page.getByLabel("Topic Name").fill("Biology");
   await page.locator('input[type="file"]').setInputFiles({ name: "notes.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7\nmock") });
-  await page.getByRole("button", { name: "Start teaching" }).click();
+  await page.getByRole("button", { name: "Start teaching", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText("Try again in 120 seconds.");
   expect(uploads).toBe(1);
 });
