@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { validateEvaluation, type ValidatedEvaluation } from "./validate";
 import { buildSystemInstruction, buildUserText, buildResponseSchema } from "./prompt";
 import { runWithBudget, type AttemptOutcome } from "./budget";
-import type { Evaluator, EvaluateArgs, EvaluationResult } from "./evaluator";
+import type { EvaluationFailureDiagnostic, Evaluator, EvaluateArgs, EvaluationResult } from "./evaluator";
 import { maybeWriteDebugPayload } from "./debug";
 
 /** One bounded teach call: 20 s wall clock, at most 2 attempts (§4, §7). */
@@ -41,6 +41,7 @@ export class GeminiEvaluator implements Evaluator {
     const RESPONSE_SCHEMA = buildResponseSchema(topic);
     const userText = buildUserText(turns);
     const started = Date.now();
+    let lastDiagnostic: EvaluationFailureDiagnostic | undefined;
 
     const callOnce = async ({ remainingMs }: { remainingMs: number }): Promise<AttemptOutcome<ValidatedEvaluation>> => {
       const ac = new AbortController();
@@ -65,8 +66,12 @@ export class GeminiEvaluator implements Evaluator {
         });
         text = resp.text;
       } catch (e) {
-        if (ac.signal.aborted) return { ok: false, reason: "timeout" };
+        if (ac.signal.aborted) {
+          lastDiagnostic = { stage: "timeout", code: "deadline_exceeded", message: "The evaluator request exceeded its time budget." };
+          return { ok: false, reason: "timeout" };
+        }
         const status = (e as { status?: number }).status;
+        lastDiagnostic = providerDiagnostic(e);
         if (status === 429 || status === 503) {
           return { ok: false, reason: "rate_limited", retryAfterMs: retryAfterMsFrom(e) };
         }
@@ -77,16 +82,21 @@ export class GeminiEvaluator implements Evaluator {
       }
 
       await maybeWriteDebugPayload({ sessionId, raw: text });
-      if (!text) return { ok: false, reason: "invalid_output" };
+      if (!text) {
+        lastDiagnostic = { stage: "response_parse", code: "empty_output", message: "The evaluator returned no response text." };
+        return { ok: false, reason: "invalid_output" };
+      }
       let parsed: unknown;
       try {
         parsed = JSON.parse(text);
       } catch {
+        lastDiagnostic = { stage: "response_parse", code: "invalid_json", message: "The evaluator returned malformed JSON." };
         return { ok: false, reason: "invalid_output" };
       }
       try {
         return { ok: true, value: validateEvaluation(parsed, { sessionId, turns, topic }) };
       } catch {
+        lastDiagnostic = { stage: "response_validation", code: "contract_rejected", message: "The evaluator response failed local contract validation." };
         return { ok: false, reason: "invalid_output" };
       }
     };
@@ -98,8 +108,42 @@ export class GeminiEvaluator implements Evaluator {
     if (result.ok) {
       return { ok: true, evaluation: result.value, model: this.model, latencyMs: Date.now() - started, attempts: result.attempts };
     }
-    return { ok: false, reason: result.reason, attempts: result.attempts };
+    if (result.reason === "timeout" && lastDiagnostic?.stage !== "timeout") {
+      lastDiagnostic = { stage: "timeout", code: "budget_exhausted", message: "The evaluator exhausted its total time budget." };
+    }
+    return {
+      ok: false,
+      reason: result.reason,
+      attempts: result.attempts,
+      ...(lastDiagnostic ? { diagnostic: lastDiagnostic } : {}),
+    };
   }
+}
+
+function providerDiagnostic(e: unknown): EvaluationFailureDiagnostic {
+  const provider = e as { status?: unknown; code?: unknown; message?: unknown };
+  const providerStatus = typeof provider.status === "number" ? provider.status : undefined;
+  let code = typeof provider.code === "string" || typeof provider.code === "number"
+    ? String(provider.code)
+    : providerStatus ? `HTTP_${providerStatus}` : "provider_error";
+  let message = "The evaluator provider request failed.";
+
+  if (typeof provider.message === "string") {
+    try {
+      const parsed = JSON.parse(provider.message) as { error?: { status?: unknown; message?: unknown } };
+      if (typeof parsed.error?.status === "string") code = parsed.error.status;
+      if (typeof parsed.error?.message === "string") message = parsed.error.message.slice(0, 300);
+    } catch {
+      // Do not log arbitrary provider text: it could contain request data.
+    }
+  }
+
+  return {
+    stage: "provider",
+    code,
+    message,
+    ...(providerStatus ? { providerStatus } : {}),
+  };
 }
 
 function retryAfterMsFrom(e: unknown): number | undefined {

@@ -12,7 +12,7 @@ import { selectProbe } from "@/lib/learner/probe";
 import { assessQuestion, GATE_VERSION } from "@/lib/learner/gate";
 import { RUBRIC_VERSION } from "@/lib/learner/record";
 import { VALIDATOR_VERSION } from "@/lib/evaluator/validate";
-import type { Evaluator } from "@/lib/evaluator/evaluator";
+import type { EvaluationResult, Evaluator } from "@/lib/evaluator/evaluator";
 import { toSessionDTO } from "./dto";
 import { ConflictError, IdempotencyMismatchError, InvalidInputError, NotFoundError } from "./errors";
 
@@ -23,6 +23,36 @@ function requireTopic<T extends { rubricData: TopicRubric | null; status: string
 
 const TURN_CAP = 30;
 const MAX_TEXT = 2000;
+
+type FailedEvaluation = Extract<EvaluationResult, { ok: false }>;
+
+function evaluationError(result: FailedEvaluation): string {
+  const detail = result.diagnostic;
+  return [
+    result.reason,
+    detail?.stage,
+    detail?.providerStatus,
+    detail?.code,
+  ].filter((part) => part !== undefined).join(":").slice(0, 200);
+}
+
+function logEvaluationFailure(
+  sessionId: string,
+  operation: "submit" | "retry",
+  result: FailedEvaluation,
+): void {
+  const detail = result.diagnostic;
+  console.error("teach_evaluation_failed", {
+    sessionRef: createHash("sha256").update(sessionId).digest("hex").slice(0, 12),
+    operation,
+    stage: detail?.stage ?? "evaluator",
+    code: detail?.code ?? result.reason,
+    reason: result.reason,
+    attempts: result.attempts,
+    ...(detail?.providerStatus ? { providerStatus: detail.providerStatus } : {}),
+    ...(detail?.message ? { message: detail.message } : {}),
+  });
+}
 
 function newOwnerToken(): string {
   return randomBytes(32).toString("hex");
@@ -279,9 +309,10 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
       });
 
       if (!result.ok) {
+        logEvaluationFailure(sessionId, "submit", result);
         await db.transaction(async (tx) => {
           await tx.update(schema.messages)
-            .set({ evalStatus: "failed", evalError: result.reason })
+            .set({ evalStatus: "failed", evalError: evaluationError(result) })
             .where(and(eq(schema.messages.id, pendingMessageId), eq(schema.messages.evalStatus, "pending")));
         });
         const dto = await buildDTO(db, sessionId);
@@ -352,8 +383,9 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
         topic: { id: topicRow.id, name: topicRow.name, rubricData: topicRow.rubricData } 
       });
       if (!result.ok) {
+        logEvaluationFailure(sessionId, "retry", result);
         await db.transaction((tx) =>
-          tx.update(schema.messages).set({ evalStatus: "failed", evalError: result.reason }).where(eq(schema.messages.id, messageId)));
+          tx.update(schema.messages).set({ evalStatus: "failed", evalError: evaluationError(result) }).where(eq(schema.messages.id, messageId)));
         return buildDTO(db, sessionId);
       }
       await db.transaction(async (tx) => {
