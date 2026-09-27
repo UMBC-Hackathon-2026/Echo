@@ -10,7 +10,7 @@ services:
   - name: web
     # Source: connect this GitHub repo in the DO dashboard.
     github:
-      repo: aahanrembersu07/inverse-tutor
+      repo: UMBC-Hackathon-2026/Echo
       branch: main
       deploy_on_push: true
     environment_slug: node-js

@@ -428,7 +428,7 @@ Completed Phase 6 documentation, verification, and submission prep.
 | `docs/source` and `lib/content` unchanged | **PASS**, no changes |
 | E2E Scripted | **PASS**, 3x runs green |
 | Deployed verification (smoke test) | **PASS**, `api/health` and `npm run smoke:http` passed on `echo-ai-yeqeb.ondigitalocean.app` |
-| Collaborator + visibility audit | **PASS**, verified public on `UMBC-Hackathon-2026/inverse-tutor` |
+| Collaborator + visibility audit | **PASS**, verified public on `UMBC-Hackathon-2026/Echo` |
 | Submission text + Demo | **PASS**, `SUBMISSION.md` and `DEMO.md` created |
 
 All checks passed or explicitly noted. The `docs/phase-6-submission` branch has been pushed.
