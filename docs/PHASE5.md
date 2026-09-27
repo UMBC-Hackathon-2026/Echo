@@ -35,7 +35,12 @@ Gate results and Phase 5A validation.
 
 ## Deployed Verification (Step 4)
 
-**BLOCKED**. Waiting for the app to be deployed to DigitalOcean by the user. Follow instructions in `docs/DEPLOY.md` to deploy.
+- **PASS**: `smoke:http` run against `BASE_URL` with 2 Gemini calls.
+- **PASS**: Owner cookie has `Secure`, `HttpOnly`, and `SameSite=Lax` flags over HTTPS.
+- **PASS**: `GET /api/health` returns `{ "ok": true, "db": "up" }` and no API response contains answer keys.
+- **PASS**: Live E2E consistency flows (Flow A and Flow B) run against the deployed URL (2/2 passed, 16.0s).
+
+**Phase 5A is completely verified.** We are ready for Phase 5B.
 
 ## Gemini Calls Used
 Phase 5A used **60 / 60** authorized calls (40 initial + 20 additional authorized) to complete the held-out suite and finalize tests.
