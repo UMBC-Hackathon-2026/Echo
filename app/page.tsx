@@ -13,36 +13,46 @@ export default function Home() {
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const addFiles = (selectedFiles: File[]) => {
     setError(null);
-    if (!e.target.files) return;
-    
-    const selectedFiles = Array.from(e.target.files);
-    
     if (selectedFiles.length + files.length > MAX_FILES) {
       setError(`You can only upload up to ${MAX_FILES} PDFs.`);
       return;
     }
 
-    const validFiles = selectedFiles.filter(file => {
+    let firstProblem: string | null = null;
+    const existing = new Set(files.map((file) => `${file.name}:${file.size}:${file.lastModified}`));
+    const validFiles = selectedFiles.filter((file) => {
       const problem = pdfProblem(file);
       if (problem) {
-        setError(problem);
+        firstProblem ??= problem;
         return false;
       }
-      return true;
+      return !existing.has(`${file.name}:${file.size}:${file.lastModified}`);
     });
 
     if (validFiles.length > 0) {
       setFiles(prev => [...prev, ...validFiles]);
     }
-    
+    if (firstProblem) setError(firstProblem);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    addFiles(Array.from(e.target.files));
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragActive(false);
+    addFiles(Array.from(e.dataTransfer.files));
   };
 
   const removeFile = (index: number) => {
@@ -94,34 +104,45 @@ export default function Home() {
 
   if (busy || failed) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center gap-6 p-8 text-center">
-        <div className="flex flex-col gap-4 items-center">
-          {busy && <div aria-hidden="true" className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900 dark:border-zinc-800 dark:border-t-zinc-100"></div>}
-          <h1 aria-live="polite" className="text-2xl font-semibold tracking-tight">{failed ? "We couldn't prepare your lesson" : "Analyzing materials..."}</h1>
+      <main className="home-shell home-state-shell">
+        <section className="processing-card">
+          {busy && <div aria-hidden="true" className="processing-spinner"><span /></div>}
+          <p className="home-kicker">{failed ? "Setup needs attention" : "Building your lesson"}</p>
+          <h1 aria-live="polite">{failed ? "We couldn't prepare your lesson" : "Analyzing your materials…"}</h1>
           {failed ? <>
-            <p role="alert" className="text-zinc-600 dark:text-zinc-400">{error}</p>
-            <button type="button" className="rounded-md border px-4 py-2" onClick={() => { setFailed(false); setError(null); }}>Review documents and try again</button>
-          </> : <p className="text-zinc-600 dark:text-zinc-400">
-            Extracting core concepts, common misconceptions, and building an assessment rubric.<br/>
-            Please keep this page open while your documents are processed.
-          </p>}
-        </div>
+            <p role="alert" className="home-state-copy">{error}</p>
+            <button type="button" className="secondary-button" onClick={() => { setFailed(false); setError(null); }}>Review documents and try again</button>
+          </> : <>
+            <p className="home-state-copy">Extracting core concepts, common misconceptions, and building a private assessment rubric.</p>
+            <div className="processing-steps" aria-hidden="true"><span className="active" /><span /><span /></div>
+            <p className="home-state-note">Please keep this page open while your documents are processed.</p>
+          </>}
+        </section>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-start justify-center gap-6 p-8">
-      <div className="flex flex-col gap-3">
-        <h1 className="text-3xl font-semibold tracking-tight">The Inverse Tutor</h1>
-        <p className="text-lg text-zinc-600 dark:text-zinc-400">
-          Upload your study materials (slides, notes, practice exams). We will simulate a learner who knows nothing about it. Teach the simulated learner, watch it take an assessment, and see how well you explained the core concepts.
-        </p>
-      </div>
-      
-      <form onSubmit={start} className="w-full flex flex-col gap-5 mt-4">
+    <main className="home-shell">
+      <section className="home-intro">
+        <p className="home-kicker">Learn by teaching</p>
+        <h1>The Inverse Tutor</h1>
+        <p>Turn your own study materials into a learner you can teach, assess, and improve.</p>
+        <ol className="home-steps" aria-label="How it works">
+          <li><span>1</span><div><strong>Upload</strong><small>Add trusted PDF notes or slides.</small></div></li>
+          <li><span>2</span><div><strong>Teach</strong><small>Explain the topic in your own words.</small></div></li>
+          <li><span>3</span><div><strong>Trace</strong><small>See exactly what your learner understood.</small></div></li>
+        </ol>
+      </section>
+
+      <section className="home-card" aria-labelledby="lesson-setup-title">
+        <div className="home-card-heading">
+          <div><p className="eyebrow">New learning session</p><h2 id="lesson-setup-title">What will you teach?</h2></div>
+          <span className="privacy-chip">Private session</span>
+        </div>
+        <form onSubmit={start} className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
-          <label htmlFor="topic" className="text-sm font-medium">Topic Name</label>
+          <label htmlFor="topic" className="field-label">Topic name</label>
           <input 
             id="topic"
             type="text" 
@@ -129,36 +150,51 @@ export default function Home() {
             value={topicName}
             onChange={(e) => setTopicName(e.target.value)}
             placeholder="e.g. Photosynthesis, Binary Search Trees..."
-            className="rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-base outline-none focus:border-zinc-500 dark:border-zinc-700 dark:focus:border-zinc-400"
+            className="home-input"
             required
           />
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium">Study Materials (PDF only, up to {MAX_FILES})</label>
-          <div className="rounded-md border-2 border-dashed border-zinc-300 p-6 flex flex-col items-center justify-center gap-2 dark:border-zinc-700">
-            <span className="text-sm text-zinc-500">Select PDF files (up to 10MB each)</span>
+          <div className="flex items-end justify-between gap-3">
+            <label htmlFor="materials" className="field-label">Study materials</label>
+            <span className="field-hint">PDF · up to 10 MB each · {files.length}/{MAX_FILES}</span>
+          </div>
+          <div
+            data-testid="pdf-drop-zone"
+            data-dragging={dragActive}
+            className={`upload-dropzone ${dragActive ? "upload-dropzone-active" : ""}`}
+            onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
+            onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragActive(false); }}
+            onDrop={handleDrop}
+          >
+            <span aria-hidden className="upload-icon">↑</span>
+            <div><strong>Drop PDFs here</strong><p>or choose files from your computer</p></div>
+            <label htmlFor="materials" className="secondary-button">Choose PDFs</label>
             <input 
+              id="materials"
               type="file" 
               ref={fileInputRef}
               accept=".pdf,application/pdf"
               multiple 
               onChange={handleFileChange}
-              className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-zinc-100 file:text-zinc-900 hover:file:bg-zinc-200 dark:file:bg-zinc-800 dark:file:text-zinc-100"
+              className="sr-only"
             />
           </div>
           
           {files.length > 0 && (
             <ul className="mt-3 flex flex-col gap-2">
               {files.map((file, i) => (
-                <li key={i} className="flex items-center justify-between bg-zinc-50 px-3 py-2 rounded-md text-sm dark:bg-zinc-800/50">
-                  <span className="truncate max-w-[80%]">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                <li key={`${file.name}-${file.lastModified}`} className="upload-file">
+                  <span aria-hidden>PDF</span>
+                  <div><strong>{file.name}</strong><small>{(file.size / 1024 / 1024).toFixed(2)} MB</small></div>
                   <button 
                     type="button" 
                     onClick={() => removeFile(i)}
-                    className="text-red-500 hover:text-red-700"
+                    aria-label={`Remove ${file.name}`}
                   >
-                    Remove
+                    ×
                   </button>
                 </li>
               ))}
@@ -166,14 +202,14 @@ export default function Home() {
           )}
         </div>
 
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        {error && <div role="alert" className="home-toast"><span aria-hidden>!</span><p>{error}</p></div>}
 
         <button
           type="submit"
           disabled={busy}
-          className="mt-2 w-full rounded-full bg-zinc-900 px-6 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          className="primary-button home-submit"
         >
-          {busy ? "Starting…" : "Start teaching"}
+          {busy && <span aria-hidden className="button-spinner" />} {busy ? "Starting…" : "Start teaching"}
         </button>
       </form>
 
@@ -182,15 +218,16 @@ export default function Home() {
           type="button"
           onClick={() => void startDemo()}
           disabled={busy}
-          className="w-full rounded-full border border-zinc-300 px-6 py-3 text-base font-medium disabled:opacity-50 dark:border-zinc-700"
+          className="secondary-button home-demo"
         >
           Start teaching recursion
         </button>
       )}
       
-      <p className="max-w-xl text-xs text-zinc-500 mt-4">
+      <p className="home-disclaimer">
         The learner is a simulation; its answers come only from the verified teaching record, and its score reflects the explanation, not your own mastery.
       </p>
+      </section>
     </main>
   );
 }

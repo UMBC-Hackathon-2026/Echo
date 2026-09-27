@@ -22,12 +22,13 @@ function Boot() {
 function VoiceToggle() {
   const { state, actions } = useSession();
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-2 ${state.hydrated ? "" : "opacity-50"}`}>
       <label className="text-sm font-medium flex items-center gap-1 cursor-pointer">
         <input
           type="checkbox"
           checked={state.voice.enabled}
           onChange={() => actions.toggleVoice()}
+          disabled={!state.hydrated}
         />
         Voice Output
       </label>
@@ -37,19 +38,73 @@ function VoiceToggle() {
 }
 
 function ErrorBanner() {
-  const { state } = useSession();
+  const { state, actions } = useSession();
   const err = state.errors.at(-1);
   if (!err) return null;
-  return <p role="alert" className="rounded-md bg-red-50 px-3 py-1 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{err.message}</p>;
+  return (
+    <div role="alert" className="error-toast">
+      <span aria-hidden className="error-toast-icon">!</span>
+      <p>{err.message}</p>
+      <button type="button" onClick={() => actions.dismissErrors()} aria-label="Dismiss error">×</button>
+    </div>
+  );
 }
+
+const PHASE_LABELS: Record<string, string> = {
+  teaching: "Teaching",
+  assessing: "Assessing",
+  reviewing: "Review",
+  reteaching: "Reteaching",
+  reassessing: "Reassessing",
+  comparing: "Comparison",
+};
 
 function SessionTitle() {
   const { state } = useSession();
   return (
     <div>
-      <p className="eyebrow">{state.topic.name}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="eyebrow">{state.hydrated ? state.topic.name : "Loading session"}</p>
+        {state.hydrated && <span className="phase-chip">{PHASE_LABELS[state.phase] ?? "Session"} · Cycle {state.cycle}</span>}
+      </div>
       <h1>The Inverse Tutor</h1>
       <p className="session-subtitle">Teach it. Test it. Trace what changed.</p>
+    </div>
+  );
+}
+
+function WorkspacePanels() {
+  const { state, actions } = useSession();
+  if (!state.hydrated) {
+    const failed = state.errors.length > 0;
+    if (failed) {
+      return (
+        <section className="panel-card session-load-error" aria-label="Session loading failed">
+          <span aria-hidden>↻</span>
+          <h2>We couldn&apos;t load this session</h2>
+          <p>Your work is still safe. Check the connection and try loading the workspace again.</p>
+          <button type="button" className="primary-button" onClick={() => void actions.hydrate()}>Retry loading session</button>
+        </section>
+      );
+    }
+    return (
+      <div className="session-grid" aria-busy="true" aria-label="Loading session workspace">
+        {["Teaching conversation", "Teaching record", "Assessment"].map((label, index) => (
+          <section key={label} className="panel-card workspace-skeleton" aria-label={`Loading ${label.toLowerCase()}`}>
+            <div className="skeleton-heading"><span>{index + 1}</span><i /></div>
+            <i className="skeleton-line skeleton-line-wide" />
+            <i className="skeleton-line" />
+            <i className="skeleton-block" />
+          </section>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="session-grid">
+      <TeachPanel />
+      <ConceptMap />
+      <AssessmentPanel />
     </div>
   );
 }
@@ -97,11 +152,7 @@ export default function SessionPage() {
           </div>
           <ErrorBanner />
         </header>
-        <div className="session-grid">
-          <TeachPanel />
-          <ConceptMap />
-          <AssessmentPanel />
-        </div>
+        <WorkspacePanels />
       </main>
     </SessionProvider>
   );
