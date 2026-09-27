@@ -44,7 +44,7 @@ export function ConceptMap() {
                 aria-pressed={selected}
                 onClick={() => actions.selectConcept(selected ? undefined : id)}
                 className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-sm ${
-                  selected ? "bg-zinc-200 dark:bg-zinc-700" : pulsed ? "bg-amber-100 dark:bg-amber-900/40" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  selected ? "bg-zinc-200 dark:bg-zinc-700" : pulsed ? "bg-amber-100 outline outline-2 outline-amber-500 dark:bg-amber-900/40" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 }`}
               >
                 <span>

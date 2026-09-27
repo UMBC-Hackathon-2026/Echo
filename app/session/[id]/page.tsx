@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { SessionProvider, useSession } from "@/hooks/useSession";
 import { TeachPanel } from "@/components/TeachPanel";
@@ -12,14 +12,16 @@ const USE_MOCKS = process.env.NODE_ENV === "development" && process.env.NEXT_PUB
 /** Hydrate from the real API on load; use dev mocks only behind the explicit flag. */
 function Boot() {
   const { state, actions } = useSession();
+  const hydrated = useRef(false);
   useEffect(() => {
+    if (hydrated.current) return;
+    hydrated.current = true;
     if (USE_MOCKS) {
       import("@/fixtures/dev/mockSession").then(({ buildMockSession }) => actions.hydrateFrom(buildMockSession(state.sessionId)));
     } else {
       void actions.hydrate();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actions]);
+  }, [actions, state.sessionId]);
   return null;
 }
 

@@ -26,7 +26,7 @@ export interface PublicQuestion {
 /** Review-only material, present ONLY after the attempt is completed. */
 export interface QuestionReview {
   answerKey: string;
-  criteria: Array<{ id: string; text: string; points: number }>;
+  criteria: Array<{ id: string; text: string; points: number; requires: ConceptId[] }>;
 }
 
 export interface QuestionResultDTO {
@@ -52,6 +52,7 @@ export interface AttemptDTO {
   formVersion: string;
   status: "in_progress" | "complete";
   results: QuestionResultDTO[];
+  pinnedRecord: RecordDTO;
 }
 
 export interface MessageDTO {

@@ -3,6 +3,7 @@ import type {
   MessageDTO,
   RecordDTO,
   SessionDTO,
+  ConceptId,
 } from "@/lib/contracts";
 
 /**
@@ -78,6 +79,7 @@ const attempt: AttemptDTO = {
   formId: "recursion.A",
   formVersion: "1.0.0+devmock0000",
   status: "complete",
+  pinnedRecord: record,
   results: [
     {
       questionId: "rec.A.P1",
@@ -104,8 +106,8 @@ const attempt: AttemptDTO = {
         answerKey:
           "When n reaches 0 the function returns without recursing; each call passes n - 1.",
         criteria: [
-          { id: "c1", text: "Names the stopping condition n === 0", points: 1 },
-          { id: "c2", text: "Explains that n - 1 on each call must reach 0", points: 1 },
+          { id: "c1", text: "Names the stopping condition n === 0", points: 1, requires: [] as ConceptId[] },
+          { id: "c2", text: "Explains that n - 1 on each call must reach 0", points: 1, requires: [] as ConceptId[] },
         ],
       },
     },

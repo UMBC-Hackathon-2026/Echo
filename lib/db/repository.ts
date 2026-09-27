@@ -152,6 +152,8 @@ export async function getAttemptsWithResults(exec: Executor, sessionId: string):
     .orderBy(asc(schema.assessmentAttempts.attemptNo));
   const out: AttemptShape[] = [];
   for (const a of attempts) {
+    const recordRow = await getRecordById(exec, sessionId, a.learningRecordId);
+    if (!recordRow) throw new Error("Missing pinned record for attempt");
     const resultRows = await exec
       .select()
       .from(schema.questionResults)
@@ -178,8 +180,9 @@ export async function getAttemptsWithResults(exec: Executor, sessionId: string):
       attemptNo: a.attemptNo as 1 | 2,
       formId: a.formId as "recursion.A" | "recursion.B",
       formVersion: a.formVersion,
-      status: a.status,
+      status: a.status as "in_progress" | "complete",
       results,
+      pinnedRecord: recordRow,
     });
   }
   return out;

@@ -46,4 +46,11 @@ export const api = {
     call(`/api/sessions/${id}/attempts`, "POST", { expectedRevision: args.expectedRevision }, args.idempotencyKey),
   complete: (attemptId: string, args: { sessionId: string; expectedRevision: number; idempotencyKey: string }) =>
     call(`/api/attempts/${attemptId}/complete`, "POST", { sessionId: args.sessionId, expectedRevision: args.expectedRevision }, args.idempotencyKey),
+  reteach: (id: string, args: { questionId: string; nextStepHint: string; expectedRevision: number; idempotencyKey: string }) =>
+    call(`/api/sessions/${id}/reteach`, "POST", { questionId: args.questionId, nextStepHint: args.nextStepHint, expectedRevision: args.expectedRevision }, args.idempotencyKey),
+  getComparison: async (id: string): Promise<import("@/lib/contracts").ComparisonRowDTO[]> => {
+    const res = await fetch(`/api/sessions/${id}/comparison`, { method: "GET" });
+    if (!res.ok) throw { status: res.status, error: "network" };
+    return res.json();
+  },
 };

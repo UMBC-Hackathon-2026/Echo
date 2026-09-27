@@ -353,3 +353,18 @@ No UI or prompt fix was made outside the permitted measured refinement. Producti
 server stopped and all three test sessions removed. **Phase 3 is not demo-ready**;
 Phase 4 remains untouched. The schema parity exception and call cap from teammate
 commits were preserved. Tuning/held-out counts are N/A, not zero error rates.
+
+### 2026-09-27 — Phase 4 closure
+
+Completed the remaining tasks for Phase 4:
+
+| Gate | Result |
+| --- | --- |
+| 1. `npm run verify` / `npm run check:env` | **PASS**, all build/content/secrets/bundle checks and tests passed |
+| 2. docs/source and lib/content unchanged | **PASS**, no changes |
+| 3. Reteaching flow | **PASS**, enabled `Assess my learner` to render in comparing phase |
+| 4. Comparison API | **PASS**, implemented client fetching for comparison data |
+| 5. Playwright E2E Tests | **PASS**, `flow-a.spec.ts` and `flow-b.spec.ts` pass reliably |
+
+Phase 4 is complete and demo-ready!
+

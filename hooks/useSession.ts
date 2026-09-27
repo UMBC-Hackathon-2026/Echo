@@ -1,9 +1,22 @@
 "use client";
 
-import { createContext, createElement, useContext, useReducer, type ReactNode } from "react";
-import { CONCEPT_IDS } from "@/lib/contracts";
-import type { ConceptId, RecordDTO, SessionDTO, SessionState } from "@/lib/contracts";
+import { createContext, createElement, useContext, useReducer, useEffect, type ReactNode } from "react";
 import { api, asApiError, newIdempotencyKey } from "@/lib/client/api";
+import { CONCEPT_IDS } from "@/lib/contracts";
+import type { ConceptId, RecordDTO, SessionDTO, ComparisonRowDTO } from "@/lib/contracts";
+
+export interface SessionState extends Omit<SessionDTO, "attempts"> {
+  recordHistory: RecordDTO[];
+  attempts: SessionDTO["attempts"];
+  activeAttemptId?: string;
+  revealIndex: number;
+  selectedConceptId?: ConceptId;
+  selectedQuestionId?: string;
+  comparison?: ComparisonRowDTO[];
+  pending: { teach?: boolean; attempt?: boolean; complete?: boolean };
+  voice: { enabled: boolean; speaking: boolean; listening: boolean };
+  errors: Array<{ kind: "llm" | "network" | "conflict"; message: string }>;
+}
 
 export const CONCEPT_ORDER: ConceptId[] = [...CONCEPT_IDS];
 
@@ -30,7 +43,8 @@ type Action =
   | { type: "CLEAR_ERRORS" }
   | { type: "SELECT_CONCEPT"; payload: { conceptId?: ConceptId } }
   | { type: "SELECT_QUESTION"; payload: { questionId?: string } }
-  | { type: "REVEAL_NEXT" };
+  | { type: "REVEAL_NEXT" }
+  | { type: "SET_COMPARISON"; payload: ComparisonRowDTO[] };
 
 function reducer(state: SessionState, action: Action): SessionState {
   switch (action.type) {
@@ -61,6 +75,8 @@ function reducer(state: SessionState, action: Action): SessionState {
       const active = state.attempts.find((a) => a.id === state.activeAttemptId);
       return { ...state, revealIndex: Math.min(state.revealIndex + 1, active?.results.length ?? 0) };
     }
+    case "SET_COMPARISON":
+      return { ...state, comparison: action.payload };
     default:
       return state;
   }
@@ -77,6 +93,7 @@ export interface SessionActions {
   selectConcept(id?: ConceptId): void;
   selectQuestion(id?: string): void;
   revealNext(): void;
+  beginReteach(questionId: string, nextStepHint: string): Promise<void>;
 }
 
 interface Ctx { state: SessionState; actions: SessionActions }
@@ -84,6 +101,14 @@ const SessionContext = createContext<Ctx | null>(null);
 
 export function SessionProvider({ sessionId, children }: { sessionId: string; children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, sessionId, initial);
+
+  useEffect(() => {
+    if (state.phase === "comparing" && !state.comparison) {
+      api.getComparison(state.sessionId)
+        .then((comp) => dispatch({ type: "SET_COMPARISON", payload: comp }))
+        .catch(() => {});
+    }
+  }, [state.phase, state.comparison, state.sessionId]);
 
   // Recreated each render so callbacks always close over the current state; they
   // are only invoked from event handlers/effects, never read during render.
@@ -113,6 +138,7 @@ export function SessionProvider({ sessionId, children }: { sessionId: string; ch
     selectConcept: (id) => dispatch({ type: "SELECT_CONCEPT", payload: { conceptId: id } }),
     selectQuestion: (id) => dispatch({ type: "SELECT_QUESTION", payload: { questionId: id } }),
     revealNext: () => dispatch({ type: "REVEAL_NEXT" }),
+    beginReteach: (questionId, nextStepHint) => run("teach", () => api.reteach(state.sessionId, { questionId, nextStepHint, expectedRevision: state.revision, idempotencyKey: newIdempotencyKey() })),
   };
 
   return createElement(SessionContext.Provider, { value: { state, actions } }, children);

@@ -1,7 +1,7 @@
 import "server-only";
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import type { SessionDTO } from "@/lib/contracts";
+import type { SessionDTO, ComparisonRowDTO, ConceptId, ConceptState } from "@/lib/contracts";
 import { getDb, type Db } from "@/lib/db/client";
 import * as schema from "@/lib/db/schema";
 import * as repo from "@/lib/db/repository";
@@ -62,6 +62,8 @@ export interface SessionService {
   retryEvaluation(input: { sessionId: string; ownerToken: string; messageId: string; expectedRevision: number }): Promise<SessionDTO>;
   createAttempt(input: CreateAttemptInput): Promise<SessionDTO>;
   completeAttempt(input: { sessionId: string; ownerToken: string; attemptId: string; expectedRevision: number; idempotencyKey: string }): Promise<SessionDTO>;
+  beginReteach(input: { sessionId: string; ownerToken: string; questionId: string; nextStepHint: string; expectedRevision: number; idempotencyKey: string }): Promise<SessionDTO>;
+  getComparison(input: { sessionId: string; ownerToken: string }): Promise<ComparisonRowDTO[]>;
   getSessionState(input: { sessionId: string; ownerToken: string }): Promise<SessionDTO>;
 }
 
@@ -95,7 +97,33 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
       repo.getMessages(exec, sessionId),
       repo.getAttemptsWithResults(exec, sessionId),
     ]);
-    return toSessionDTO({ sessionId, phase: session.phase, revision: session.revision, cycle: session.cycle, messages, record, attempts });
+    const dto = toSessionDTO({ sessionId, phase: session.phase, revision: session.revision, cycle: session.cycle, messages, record, attempts });
+    if (session.phase === "comparing" && attempts.length === 2) {
+      const [a1, a2] = attempts;
+      const c1 = a1.pinnedRecord.concepts;
+      const c2 = a2.pinnedRecord.concepts;
+      const map1 = new Map(a1.results.map((r) => [r.result.pairId, r]));
+      dto.comparison = a2.results.map((r2) => {
+        const r1 = map1.get(r2.result.pairId);
+        if (!r1) throw new Error(`Missing matching pairId ${r2.result.pairId}`);
+        const conceptsBefore = {} as Record<ConceptId, ConceptState>;
+        const conceptsAfter = {} as Record<ConceptId, ConceptState>;
+        for (const k of Object.keys(c1)) {
+           const cid = k as ConceptId;
+           conceptsBefore[cid] = c1[cid].state;
+           conceptsAfter[cid] = c2[cid].state;
+        }
+        return {
+          pairId: r2.result.pairId,
+          type: r2.question.type,
+          before: { outcome: r1.result.outcome, points: r1.result.points, maxPoints: r1.result.maxPoints, answerText: r1.result.answerText },
+          after: { outcome: r2.result.outcome, points: r2.result.points, maxPoints: r2.result.maxPoints, answerText: r2.result.answerText },
+          conceptsBefore,
+          conceptsAfter,
+        };
+      });
+    }
+    return dto;
   }
 
   async function loadOwned(exec: Executor, sessionId: string, token: string) {
@@ -286,7 +314,7 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
         const idem = await repo.getIdempotency(tx, { sessionId, route, key: idempotencyKey, requestHash });
         if (idem.kind === "stored") { replay = idem.response as SessionDTO; return; }
         if (idem.kind === "mismatch") throw new IdempotencyMismatchError();
-        if (s.phase !== "teaching") throw new ConflictError(s.phase, s.revision, "not in teaching phase");
+        if (s.phase !== "teaching" && s.phase !== "reteaching") throw new ConflictError(s.phase, s.revision, "not in teaching or reteaching phase");
         if (s.revision !== expectedRevision) throw new ConflictError(s.phase, s.revision, "revision mismatch");
         // A pending OR failed teaching turn blocks a fresh assessment (§6).
         if ((await repo.countUnevaluated(tx, sessionId)) > 0) throw new ConflictError(s.phase, s.revision, "unevaluated teaching");
@@ -296,10 +324,12 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
           : await repo.getLatestRecord(tx, sessionId);
         if (!record) throw new NotFoundError("record not found");
 
-        const form = getForm("recursion.A");
+        const formId = s.phase === "teaching" ? "recursion.A" : "recursion.B";
+        const form = getForm(formId);
         const attemptId = randomUUID();
+        const attemptNo = s.phase === "teaching" ? 1 : 2;
         await tx.insert(schema.assessmentAttempts).values({
-          id: attemptId, sessionId, attemptNo: 1, formId: form.id, formVersion: form.version,
+          id: attemptId, sessionId, attemptNo, formId: form.id, formVersion: form.version,
           gateVersion: GATE_VERSION, rubricVersion: RUBRIC_VERSION, learningRecordId: record.id,
           status: "in_progress", expectedResults: form.questions.length,
         });
@@ -313,7 +343,8 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
             blocking: r.blocking, nextStep: r.nextStep,
           });
         }
-        await tx.update(schema.sessions).set({ phase: "assessing", revision: s.revision + 1, updatedAt: new Date() }).where(eq(schema.sessions.id, sessionId));
+        const nextPhase = s.phase === "teaching" ? "assessing" : "reassessing";
+        await tx.update(schema.sessions).set({ phase: nextPhase, revision: s.revision + 1, updatedAt: new Date() }).where(eq(schema.sessions.id, sessionId));
       });
       if (replay) return replay;
       const dto = await buildDTO(db, sessionId);
@@ -330,7 +361,7 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
         const idem = await repo.getIdempotency(tx, { sessionId, route, key: idempotencyKey, requestHash });
         if (idem.kind === "stored") { replay = idem.response as SessionDTO; return; }
         if (idem.kind === "mismatch") throw new IdempotencyMismatchError();
-        if (s.phase !== "assessing") throw new ConflictError(s.phase, s.revision, "not in assessing phase");
+        if (s.phase !== "assessing" && s.phase !== "reassessing") throw new ConflictError(s.phase, s.revision, "not in assessing or reassessing phase");
         if (s.revision !== expectedRevision) throw new ConflictError(s.phase, s.revision, "revision mismatch");
         const rows = await tx.select().from(schema.assessmentAttempts)
           .where(and(eq(schema.assessmentAttempts.id, attemptId), eq(schema.assessmentAttempts.sessionId, sessionId))).limit(1);
@@ -339,7 +370,34 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
         const count = await repo.countResults(tx, attemptId);
         if (count !== attempt.expectedResults) throw new ConflictError(s.phase, s.revision, "results incomplete");
         await tx.update(schema.assessmentAttempts).set({ status: "complete", completedAt: new Date() }).where(eq(schema.assessmentAttempts.id, attemptId));
-        await tx.update(schema.sessions).set({ phase: "reviewing", revision: s.revision + 1, updatedAt: new Date() }).where(eq(schema.sessions.id, sessionId));
+        const nextPhase = s.phase === "assessing" ? "reviewing" : "comparing";
+        await tx.update(schema.sessions).set({ phase: nextPhase, revision: s.revision + 1, updatedAt: new Date() }).where(eq(schema.sessions.id, sessionId));
+      });
+      if (replay) return replay;
+      const dto = await buildDTO(db, sessionId);
+      await db.transaction((tx) => repo.putIdempotency(tx, { sessionId, route, key: idempotencyKey, requestHash, response: dto }));
+      return dto;
+    },
+
+    async beginReteach({ sessionId, ownerToken, questionId, nextStepHint, expectedRevision, idempotencyKey }) {
+      const route = "reteach";
+      const requestHash = hashRequest({ expectedRevision, questionId, nextStepHint });
+      let replay: SessionDTO | undefined;
+      await db.transaction(async (tx) => {
+        const s = await loadOwned(tx, sessionId, ownerToken);
+        const idem = await repo.getIdempotency(tx, { sessionId, route, key: idempotencyKey, requestHash });
+        if (idem.kind === "stored") { replay = idem.response as SessionDTO; return; }
+        if (idem.kind === "mismatch") throw new IdempotencyMismatchError();
+        if (s.phase !== "reviewing") throw new ConflictError(s.phase, s.revision, "not in reviewing phase");
+        if (s.revision !== expectedRevision) throw new ConflictError(s.phase, s.revision, "revision mismatch");
+
+        const nextCycle = s.cycle + 1;
+        const turnNo = await repo.nextTurnNo(tx, sessionId);
+        await tx.insert(schema.messages).values({
+          id: randomUUID(), sessionId, turnNo, role: "learner", content: nextStepHint, inputMode: "typed", cycle: nextCycle, evalStatus: "not_applicable",
+        });
+
+        await tx.update(schema.sessions).set({ phase: "reteaching", cycle: nextCycle, revision: s.revision + 1, updatedAt: new Date() }).where(eq(schema.sessions.id, sessionId));
       });
       if (replay) return replay;
       const dto = await buildDTO(db, sessionId);
@@ -352,6 +410,13 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
       if (!session) throw new NotFoundError();
       assertOwner(session, ownerToken);
       return buildDTO(db, sessionId);
+    },
+
+    async getComparison({ sessionId, ownerToken }) {
+      const dto = await this.getSessionState({ sessionId, ownerToken });
+      if (dto.phase !== "comparing") throw new ConflictError(dto.phase, dto.revision, "not in comparing phase");
+      if (!dto.comparison) throw new ConflictError(dto.phase, dto.revision, "comparison missing");
+      return dto.comparison;
     },
   };
 }

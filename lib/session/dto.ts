@@ -98,7 +98,7 @@ export function toQuestionResultDTO(row: ResultRow, includeReview: boolean): Que
   if (includeReview) {
     dto.review = {
       answerKey: q.answerKey,
-      criteria: q.criteria.map((c) => ({ id: c.id, text: c.text, points: c.points })),
+      criteria: q.criteria.map((c) => ({ id: c.id, text: c.text, points: c.points, requires: [...c.requires] })),
     };
   }
   return dto;
@@ -111,6 +111,7 @@ export interface AttemptShape {
   formVersion: string;
   status: "in_progress" | "complete";
   results: ResultRow[];
+  pinnedRecord: LearningRecord;
 }
 
 export function toAttemptDTO(a: AttemptShape): AttemptDTO {
@@ -122,6 +123,7 @@ export function toAttemptDTO(a: AttemptShape): AttemptDTO {
     formVersion: a.formVersion,
     status: a.status,
     results: a.results.map((r) => toQuestionResultDTO(r, includeReview)),
+    pinnedRecord: toRecordDTO(a.pinnedRecord),
   };
 }
 
