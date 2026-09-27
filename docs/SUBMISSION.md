@@ -1,8 +1,8 @@
-# The Inverse Tutor: HackUMBC 2026 Submission
+# Echo: HackUMBC 2026 Submission
 
 ## Project Description
 
-The Inverse Tutor flips the traditional education model: students play the role of the teacher. You explain a core computing concept (Recursion) to a simulated learner. The system then evaluates your explanation and the learner takes a test based *only* on what you taught it. You inspect its mistakes, reteach the concept to clear up misunderstandings, and see the learner's score improve. The system provides a tangible metric for the clarity of your explanation.
+Echo flips the traditional education model: students play the role of the teacher. You explain a core computing concept (Recursion) to a simulated learner. The system then evaluates your explanation and the learner takes a test based *only* on what you taught it. You inspect its mistakes, reteach the concept to clear up misunderstandings, and see the learner's score improve. The system provides a tangible metric for the clarity of your explanation.
 
 **Video Demo:** [VIDEO_LINK]
 
@@ -12,7 +12,7 @@ We realized that simply answering multiple-choice questions or writing isolated 
 
 ## How it was built
 
-The Inverse Tutor is a **rubric-driven simulation** built as a Next.js App Router application.
+Echo is a **rubric-driven simulation** built as a Next.js App Router application.
 - **Evaluation:** We use the Gemini API purely as an evaluator. It extracts the presence of rubric criteria from the student's text.
 - **Simulation:** Based on the verified evidence from Gemini, our deterministic code decides every answer the simulated learner gives. The learner never uses an LLM to generate answers.
 - **Voice:** We integrated ElevenLabs Text-to-Speech (TTS) to give the simulated learner a voice, making the interaction feel more engaging.
@@ -31,7 +31,7 @@ The Inverse Tutor is a **rubric-driven simulation** built as a Next.js App Route
 - **Clean Architecture:** We separated the LLM integration from the core deterministic state machine, ensuring our simulation was testable and predictable.
 - **Seamless Integrations:** Combining Gemini for semantic evaluation and ElevenLabs for voice output successfully created a novel and immersive "teacher-student" experience.
 
-## What's next for The Inverse Tutor
+## What's next for Echo
 
 - **Expanding Content:** Implementing support for more concepts like Pointers, Object-Oriented Programming, and Data Structures.
 - **UMBC Pilot:** We are proposing a pilot study at UMBC where introductory programming students answer separate pre- and post-questions, alongside a comparison group, to formally evaluate learning gains.

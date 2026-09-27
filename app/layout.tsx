@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The Inverse Tutor",
+  title: "Echo",
   description: "Teach a simulated learner and trace its answers back to your explanation.",
+  icons: { icon: "/echo-logo.png", apple: "/echo-logo.png" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
