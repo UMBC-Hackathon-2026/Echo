@@ -1,5 +1,5 @@
-import { useSession } from "@/hooks/useSession";
-import type { Outcome, ConceptId } from "@/lib/contracts";
+import { useSession, CONCEPT_ORDER } from "@/hooks/useSession";
+import type { Outcome, ConceptId, ConceptState } from "@/lib/contracts";
 import Link from "next/link";
 
 const OUTCOME_UI: Record<Outcome, { label: string; icon: string }> = {
@@ -8,6 +8,22 @@ const OUTCOME_UI: Record<Outcome, { label: string; icon: string }> = {
   misconception: { label: "Misconception", icon: "▲" },
   unsure: { label: "Unsure", icon: "?" },
 };
+
+const STATE_LABEL: Record<ConceptState, string> = {
+  not_taught: "Not taught",
+  partially_taught: "Partial",
+  demonstrated: "Solid",
+};
+
+const CONCEPT_LABEL: Record<string, string> = {
+  recursive_call: "Calls itself",
+  smaller_subproblem: "Smaller subproblem",
+  base_case: "Base case",
+  progress_toward_base_case: "Progress to base case",
+  return_path: "Return path",
+};
+
+const SEEDED_BELIEF_ID = "recursion_runs_forever";
 
 export function AssessmentPanel() {
   const { state, actions } = useSession();
@@ -21,41 +37,86 @@ export function AssessmentPanel() {
     <section aria-label="Assessment panel" className="flex flex-col gap-3 rounded-lg border border-black/10 p-4 dark:border-white/15">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Assessment</h2>
 
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Assessment</h2>
+      {state.phase === "comparing" && state.comparison && (() => {
+        const concepts = state.comparison[0];
+        const afterAttempt = state.attempts.find((a) => a.attemptNo === 2);
+        const beliefResolved = afterAttempt?.pinnedRecord.misconceptions[SEEDED_BELIEF_ID]?.status === "resolved";
+        return (
+          <div className="flex flex-col gap-4">
+            <p className="text-xs text-zinc-500">
+              Forms designed to be comparable, pending learner testing. The score reflects the explanation, not the student&apos;s own mastery.
+            </p>
+            <ul className="flex flex-col gap-3">
+              {state.comparison.map((c) => {
+                const improved = c.after.points > c.before.points;
+                return (
+                  <li
+                    key={c.pairId}
+                    data-testid={`compare-${c.pairId}`}
+                    data-before-points={c.before.points}
+                    data-after-points={c.after.points}
+                    data-improved={improved}
+                    className="rounded-md border p-3 text-sm border-black/10 dark:border-white/15"
+                  >
+                    <h3 className="font-semibold">{c.pairId} — {c.type}</h3>
+                    <div className="mt-1 flex flex-row gap-4">
+                      <div className="flex-1">
+                        <span className="text-xs text-zinc-500">Before</span>
+                        <p>{OUTCOME_UI[c.before.outcome].label} ({c.before.points} of {c.before.maxPoints})</p>
+                        <p data-testid={`compare-${c.pairId}-before-answer`} className="mt-1 italic text-zinc-600 dark:text-zinc-400">{c.before.answerText}</p>
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-xs text-zinc-500">After</span>
+                        <p>{OUTCOME_UI[c.after.outcome].label} ({c.after.points} of {c.after.maxPoints})</p>
+                        <p data-testid={`compare-${c.pairId}-after-answer`} className="mt-1 italic text-zinc-600 dark:text-zinc-400">{c.after.answerText}</p>
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs font-medium">
+                      {c.type}: {c.before.points} of {c.before.maxPoints} → {c.after.points} of {c.after.maxPoints} {improved ? "(improved)" : "(no change)"}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
 
-      {state.phase === "comparing" && state.comparison && (
-        <div className="flex flex-col gap-4">
-          <p className="text-xs text-zinc-500">
-            Forms designed to be comparable, pending learner testing. The score reflects the explanation, not the student&apos;s own mastery.
-          </p>
-          <ul className="flex flex-col gap-3">
-            {state.comparison.map((c) => (
-              <li key={c.pairId} className="rounded-md border p-3 text-sm border-black/10 dark:border-white/15">
-                <h3 className="font-semibold">{c.pairId} - {c.type}</h3>
-                <div className="mt-1 flex flex-row gap-4">
-                  <div className="flex-1">
-                    <span className="text-xs text-zinc-500">Before</span>
-                    <p>{c.before.outcome} ({c.before.points} of {c.before.maxPoints})</p>
-                  </div>
-                  <div className="flex-1">
-                    <span className="text-xs text-zinc-500">After</span>
-                    <p>{c.after.outcome} ({c.after.points} of {c.after.maxPoints})</p>
-                  </div>
-                </div>
-                <div className="mt-2 text-xs font-medium">
-                  {c.type}: {c.before.points} of {c.before.maxPoints} -&gt; {c.after.points} of {c.after.maxPoints}
-                </div>
-              </li>
-            ))}
-          </ul>
-          <Link
-            href="/"
-            className="self-start rounded-full bg-zinc-900 px-4 py-1 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            Start a new session
-          </Link>
-        </div>
-      )}
+            <div data-testid="concept-changes" className="rounded-md border border-black/10 p-3 text-sm dark:border-white/15">
+              <h3 className="font-semibold">What your learner understands now</h3>
+              <ul className="mt-1 flex flex-col gap-1">
+                {CONCEPT_ORDER.map((cid) => {
+                  const before = concepts.conceptsBefore[cid];
+                  const after = concepts.conceptsAfter[cid];
+                  const changed = before !== after;
+                  return (
+                    <li
+                      key={cid}
+                      data-testid={`concept-change-${cid}`}
+                      data-before={before}
+                      data-after={after}
+                      data-changed={changed}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <span>{CONCEPT_LABEL[cid] ?? cid}</span>
+                      <span className="whitespace-nowrap text-xs text-zinc-600 dark:text-zinc-400">
+                        {STATE_LABEL[before]} → {STATE_LABEL[after]}{changed ? " (changed)" : ""}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p data-testid="belief-status" data-resolved={beliefResolved} className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+                Starting belief: {beliefResolved ? "resolved" : "still active"}
+              </p>
+            </div>
+
+            <Link
+              href="/"
+              className="self-start rounded-full bg-zinc-900 px-4 py-1 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900"
+            >
+              Start a new session
+            </Link>
+          </div>
+        );
+      })()}
 
       {state.phase !== "comparing" && (!active || active.status === "complete") && (
         <button

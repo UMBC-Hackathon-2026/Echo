@@ -188,7 +188,8 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
         const idem = await repo.getIdempotency(tx, { sessionId, route, key: idempotencyKey, requestHash });
         if (idem.kind === "stored") { replay = idem.response as SessionDTO; return; }
         if (idem.kind === "mismatch") throw new IdempotencyMismatchError();
-        if (s.phase !== "teaching") throw new ConflictError(s.phase, s.revision, "not in teaching phase");
+        // §4 transitions: teaching submissions are accepted in teaching AND reteaching, staying in the same phase.
+        if (s.phase !== "teaching" && s.phase !== "reteaching") throw new ConflictError(s.phase, s.revision, "not in a teaching phase");
         if (s.revision !== expectedRevision) throw new ConflictError(s.phase, s.revision, "revision mismatch");
         if ((await repo.countPendingEvaluations(tx, sessionId)) > 0) throw new ConflictError(s.phase, s.revision, "evaluation pending");
         const turnNo = await repo.nextTurnNo(tx, sessionId);
@@ -256,7 +257,8 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
     async retryEvaluation({ sessionId, ownerToken, messageId, expectedRevision }) {
       const tx1 = await db.transaction(async (tx) => {
         const s = await loadOwned(tx, sessionId, ownerToken);
-        if (s.phase !== "teaching") throw new ConflictError(s.phase, s.revision, "not in teaching phase");
+        // Retry is allowed wherever teaching is (teaching or reteaching), for a failed turn in the current cycle.
+        if (s.phase !== "teaching" && s.phase !== "reteaching") throw new ConflictError(s.phase, s.revision, "not in a teaching phase");
         if (s.revision !== expectedRevision) throw new ConflictError(s.phase, s.revision, "revision mismatch");
         if ((await repo.countPendingEvaluations(tx, sessionId)) > 0) throw new ConflictError(s.phase, s.revision, "evaluation pending");
         const msgs = await tx.select().from(schema.messages)

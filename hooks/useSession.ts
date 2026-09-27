@@ -25,7 +25,7 @@ export function emptyRecord(): RecordDTO {
   for (const id of CONCEPT_IDS) {
     concepts[id] = { state: "not_taught", evidence: [], conflicts: [], uncertain: false, reason: "not assessed" };
   }
-  return { id: "record-0", version: 0, cycle: 1, rubricVersion: "1.0.1", concepts, misconceptions: {} };
+  return { id: "record-0", version: 0, cycle: 1, rubricVersion: "1.0.2", concepts, misconceptions: {} };
 }
 
 function initial(sessionId: string): SessionState {

@@ -6,5 +6,5 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest, ctx: { params: Promise<{ id: string }> }): Promise<Response> {
   const { id } = await ctx.params;
-  return handleGetSession(request, id, defaultService());
+  return handleGetSession(request, id, await defaultService());
 }

@@ -7,7 +7,10 @@ import { CONCEPT_IDS } from "@/lib/contracts";
  * sees, plus the authored probe asked during teaching. Probes never state the
  * rule they ask about. Server-only: the evaluator reads these; the client never does.
  */
-export const RUBRIC_VERSION = "1.0.1";
+// 1.0.2: the smaller_subproblem.demonstrated prompt example was reworded during
+// Phase 3 closeout (commit 32a5d88) without bumping this version; bumped here so
+// new attempts record the changed rubric content while past attempts keep theirs.
+export const RUBRIC_VERSION = "1.0.2";
 
 /** Authored prompt examples for one concept, not held-out evaluation results. */
 export interface RubricExample {

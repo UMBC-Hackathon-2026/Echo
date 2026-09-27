@@ -1,54 +1,40 @@
 import { test, expect } from '@playwright/test';
+import { startSession, teach, assessAndComplete, beginReteach } from './helpers';
 
-test('Flow A (demo path): Review, Reteach, Comparison', async ({ page }) => {
-  // Start session
-  await page.goto('/');
-  await page.click('text="Start teaching recursion"');
+/**
+ * Flow A — the demo path. With the scripted evaluator this is fully
+ * deterministic and asserts the OUTCOME, not just rendering: a correct
+ * base-case reteach must lift P1 from 0/2 to 2/2, move base_case from
+ * not_taught to demonstrated, and resolve the seeded belief.
+ */
+test('Flow A demo path proves improvement @scripted', async ({ page }) => {
+  await startSession(page);
 
-  // Wait for teaching phase
-  await page.waitForSelector('textarea#teach-input');
+  // Cycle 1: teach recursion but omit the base case.
+  await teach(page, 'A function is recursive when it calls itself, and each call works on a smaller n.');
+  await assessAndComplete(page);
 
-  // Cycle 1: teach without base case
-  await page.fill('textarea#teach-input', 'A function is recursive when it calls itself, and each call works on a smaller n.');
-  await page.click('button:has-text("Send")');
+  // Cycle 2: reteach the base case correctly.
+  await beginReteach(page);
+  await teach(page, 'It stops when n reaches 0: at n === 0 it returns without calling itself again.');
+  await assessAndComplete(page);
 
-  // Trigger assessment
-  await page.click('button:has-text("Assess my learner")');
+  // Comparison: P1 improves 0/2 -> 2/2.
+  const p1 = page.getByTestId('compare-P1');
+  await expect(p1).toBeVisible();
+  await expect(p1).toHaveAttribute('data-before-points', '0');
+  await expect(p1).toHaveAttribute('data-after-points', '2');
+  await expect(p1).toHaveAttribute('data-improved', 'true');
+  await expect(p1).toContainText('0 of 2');
+  await expect(p1).toContainText('2 of 2');
 
-  // Wait for assessing phase to complete by clicking "Reveal next answer" until "Complete attempt" appears
-  await page.waitForSelector('button:has-text("Reveal next answer"), button:has-text("Complete attempt")');
-  while (await page.locator('button:has-text("Reveal next answer")').isVisible()) {
-    await page.click('button:has-text("Reveal next answer")');
-    await page.waitForTimeout(100); // small delay to let React render
-  }
-  // complete the attempt
-  const completeResp = page.waitForResponse(resp => resp.url().includes('/complete') && resp.status() === 200);
-  await page.click('button:has-text("Complete attempt")');
-  await completeResp;
+  // base_case: not_taught -> demonstrated.
+  const baseCase = page.getByTestId('concept-change-base_case');
+  await expect(baseCase).toHaveAttribute('data-before', 'not_taught');
+  await expect(baseCase).toHaveAttribute('data-after', 'demonstrated');
 
-  // Reviewing phase: check review shows base_case blocking
-  await expect(page.locator('text="Blocking:"').first()).toBeVisible();
-  // Click Reteach this for base_case (assumes P1 is terminated/base_case)
-  await page.locator('button:has-text("Reteach this")').first().click();
+  // Seeded belief is resolved.
+  await expect(page.getByTestId('belief-status')).toHaveAttribute('data-resolved', 'true');
 
-  // Reteaching phase: teach base case
-  await page.fill('textarea#teach-input', 'It stops when n reaches 0: at n === 0 it returns without calling itself again.');
-  await page.click('button:has-text("Send")');
-
-  // Trigger reassessment (form B)
-  await page.click('button:has-text("Assess my learner")');
-
-  // Wait for reassessing to complete
-  await page.waitForSelector('button:has-text("Reveal next answer"), button:has-text("Complete attempt")');
-  while (await page.locator('button:has-text("Reveal next answer")').isVisible()) {
-    await page.click('button:has-text("Reveal next answer")');
-    await page.waitForTimeout(100);
-  }
-  const completeResp2 = page.waitForResponse(resp => resp.url().includes('/complete') && resp.status() === 200);
-  await page.click('button:has-text("Complete attempt")');
-  await completeResp2;
-
-  // Comparing phase: check that comparison shows improvement
-  await expect(page.locator('text="Start a new session"')).toBeVisible();
-  await expect(page.locator('text=/termination:/i').first()).toBeVisible();
+  await expect(page.getByText('Start a new session')).toBeVisible();
 });

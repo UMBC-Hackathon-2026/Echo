@@ -12,15 +12,22 @@ const EVAL_LABEL: Record<string, string> = {
 };
 
 function highlight(content: string, spans: Span[]): ReactNode {
-  const s = spans[0];
-  if (!s || s.start < 0 || s.end > content.length || s.start >= s.end) return content;
-  return (
-    <>
-      {content.slice(0, s.start)}
-      <mark className="rounded bg-yellow-200 px-0.5 dark:bg-yellow-700/60">{content.slice(s.start, s.end)}</mark>
-      {content.slice(s.end)}
-    </>
-  );
+  const valid = spans
+    .filter((s) => s.start >= 0 && s.end <= content.length && s.start < s.end)
+    .sort((a, b) => a.start - b.start);
+  if (!valid.length) return content;
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  valid.forEach((s, i) => {
+    if (s.start < cursor) return; // skip an overlapping span
+    if (s.start > cursor) parts.push(content.slice(cursor, s.start));
+    parts.push(
+      <mark key={i} className="rounded bg-yellow-200 px-0.5 dark:bg-yellow-700/60">{content.slice(s.start, s.end)}</mark>,
+    );
+    cursor = s.end;
+  });
+  if (cursor < content.length) parts.push(content.slice(cursor));
+  return <>{parts}</>;
 }
 
 export function TeachPanel() {

@@ -1,53 +1,34 @@
 import { test, expect } from '@playwright/test';
+import { startSession, teach, assessAndComplete, beginReteach } from './helpers';
 
-test('Flow B (wrong reteach): No false improvement', async ({ page }) => {
-  // Start session
-  await page.goto('/');
-  await page.click('text="Start teaching recursion"');
+/**
+ * Flow B — the wrong reteach. A keyword-stuffed explanation that names a
+ * "base case" but never states a concrete stopping condition must NOT improve
+ * P1: base_case stays not_taught, the seeded belief stays active, and the
+ * comparison shows no gain. This is the rehearsed "no false improvement" demo.
+ */
+test('Flow B wrong reteach shows no false improvement @scripted', async ({ page }) => {
+  await startSession(page);
 
-  // Wait for teaching phase
-  await page.waitForSelector('textarea#teach-input');
+  // Cycle 1: same starting explanation, base case omitted.
+  await teach(page, 'A function is recursive when it calls itself, and each call works on a smaller n.');
+  await assessAndComplete(page);
 
-  // Cycle 1: teach without base case
-  await page.fill('textarea#teach-input', 'A function is recursive when it calls itself, and each call works on a smaller n.');
-  await page.click('button:has-text("Send")');
+  // Cycle 2: a wrong, keyword-stuffed reteach with no real stopping condition.
+  await beginReteach(page);
+  await teach(page, 'This uses recursion and has a base case and it stops, you know, when recursion finishes doing the recursion.');
+  await assessAndComplete(page);
 
-  // Trigger assessment
-  await page.click('button:has-text("Assess my learner")');
+  // Comparison: P1 does NOT improve (0/2 -> 0/2).
+  const p1 = page.getByTestId('compare-P1');
+  await expect(p1).toBeVisible();
+  await expect(p1).toHaveAttribute('data-before-points', '0');
+  await expect(p1).toHaveAttribute('data-after-points', '0');
+  await expect(p1).toHaveAttribute('data-improved', 'false');
+  await expect(p1).toContainText('0 of 2 → 0 of 2');
 
-  // Wait for assessing phase to complete
-  await page.waitForSelector('button:has-text("Reveal next answer"), button:has-text("Complete attempt")');
-  while (await page.locator('button:has-text("Reveal next answer")').isVisible()) {
-    await page.click('button:has-text("Reveal next answer")');
-    await page.waitForTimeout(100);
-  }
-  const completeResp = page.waitForResponse(resp => resp.url().includes('/complete') && resp.status() === 200);
-  await page.click('button:has-text("Complete attempt")');
-  await completeResp;
-
-  // Reviewing phase
-  await expect(page.locator('text="Blocking:"').first()).toBeVisible();
-  await page.locator('button:has-text("Reteach this")').first().click();
-
-  // Reteaching phase: wrong base case (keyword-stuffed)
-  await page.fill('textarea#teach-input', 'This uses recursion and has a base case and it stops, you know, when recursion finishes doing the recursion.');
-  await page.click('button:has-text("Send")');
-
-  // Trigger reassessment (form B)
-  await page.click('button:has-text("Assess my learner")');
-
-  // Wait for reassessing to complete
-  await page.waitForSelector('button:has-text("Reveal next answer"), button:has-text("Complete attempt")');
-  while (await page.locator('button:has-text("Reveal next answer")').isVisible()) {
-    await page.click('button:has-text("Reveal next answer")');
-    await page.waitForTimeout(100);
-  }
-  const completeResp2 = page.waitForResponse(resp => resp.url().includes('/complete') && resp.status() === 200);
-  await page.click('button:has-text("Complete attempt")');
-  await completeResp2;
-
-  // Comparing phase: check that comparison shows NO improvement for termination
-  await expect(page.locator('text="Start a new session"')).toBeVisible();
-  // We expect no improvement, so Termination is 0 of 2 -> 0 of 2 (or something like that depending on our exact UI)
-  await expect(page.locator('text=/termination: 0 of 2 -> 0 of 2/i')).toBeVisible();
+  // base_case never reached demonstrated; the seeded belief stays active.
+  const baseCase = page.getByTestId('concept-change-base_case');
+  await expect(baseCase).toHaveAttribute('data-after', 'not_taught');
+  await expect(page.getByTestId('belief-status')).toHaveAttribute('data-resolved', 'false');
 });
