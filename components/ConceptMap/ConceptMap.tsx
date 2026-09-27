@@ -27,11 +27,9 @@ export function ConceptMap() {
   const blocking = new Set<string>(selectedResult?.blocking.concepts ?? []);
 
   return (
-    <section aria-label="Concept map" className="flex flex-col gap-3 rounded-lg border border-black/10 p-4 dark:border-white/15">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-        Concept map <span className="ml-1 font-normal normal-case text-zinc-400">record v{record.version}</span>
-      </h2>
-      <ul className="flex flex-col gap-1">
+    <section aria-label="Concept map" className="panel-card concept-panel">
+      <div className="panel-heading"><span>2</span><div><h2>Teaching record</h2><p>Verified concepts · record v{record.version}</p></div></div>
+      <ul className="concept-list">
         {CONCEPT_ORDER.map((id: ConceptId) => {
           const c = record.concepts[id];
           const ui = STATE_UI[c.state];
@@ -43,8 +41,8 @@ export function ConceptMap() {
                 type="button"
                 aria-pressed={selected}
                 onClick={() => actions.selectConcept(selected ? undefined : id)}
-                className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-sm ${
-                  selected ? "bg-zinc-200 dark:bg-zinc-700" : pulsed ? "bg-amber-100 outline outline-2 outline-amber-500 dark:bg-amber-900/40" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className={`concept-button ${
+                  selected ? "concept-selected" : pulsed ? "concept-blocking" : ""
                 }`}
               >
                 <span>
@@ -52,7 +50,7 @@ export function ConceptMap() {
                   {CONCEPT_LABEL[id] ?? id}
                   {c.uncertain && <span className="ml-1 text-xs text-amber-600">(uncertain)</span>}
                 </span>
-                <span className="text-xs text-zinc-500">{ui.label}</span>
+                <span className={`concept-state state-${c.state}`}>{ui.label}</span>
               </button>
               {selected && c.reason && <p className="px-2 pb-1 text-xs text-zinc-500">{c.reason}</p>}
             </li>
@@ -60,8 +58,8 @@ export function ConceptMap() {
         })}
       </ul>
       {Object.keys(record.misconceptions).length > 0 && (
-        <div className="mt-1 border-t border-black/10 pt-2 dark:border-white/15">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">Beliefs</h3>
+        <div className="beliefs">
+          <h3>Beliefs</h3>
           <ul className="flex flex-col gap-1">
             {Object.entries(record.misconceptions).map(([id, m]) => (
               <li key={id} className="text-xs">

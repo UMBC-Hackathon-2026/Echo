@@ -34,8 +34,8 @@ export function AssessmentPanel() {
   const canAssess = (state.phase === "teaching" || state.phase === "reteaching") && !turnBlocked && !state.pending.attempt && !state.pending.teach;
 
   return (
-    <section aria-label="Assessment panel" className="flex flex-col gap-3 rounded-lg border border-black/10 p-4 dark:border-white/15">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Assessment</h2>
+    <section aria-label="Assessment panel" className="panel-card assessment-panel">
+      <div className="panel-heading"><span>3</span><div><h2>Assess &amp; review</h2><p>Answers come from the teaching record.</p></div></div>
 
       {state.phase === "comparing" && state.comparison && (() => {
         const concepts = state.comparison[0];
@@ -43,7 +43,7 @@ export function AssessmentPanel() {
         const beliefResolved = afterAttempt?.pinnedRecord.misconceptions[SEEDED_BELIEF_ID]?.status === "resolved";
         return (
           <div className="flex flex-col gap-4">
-            <p className="text-xs text-zinc-500">
+            <p className="comparison-note">
               Forms designed to be comparable, pending learner testing. The score reflects the explanation, not the student&apos;s own mastery.
             </p>
             <ul className="flex flex-col gap-3">
@@ -59,7 +59,7 @@ export function AssessmentPanel() {
                     className="rounded-md border p-3 text-sm border-black/10 dark:border-white/15"
                   >
                     <h3 className="font-semibold">{c.pairId} — {c.type}</h3>
-                    <div className="mt-1 flex flex-row gap-4">
+                    <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:gap-4">
                       <div className="flex-1">
                         <span className="text-xs text-zinc-500">Before</span>
                         <p>{OUTCOME_UI[c.before.outcome].label} ({c.before.points} of {c.before.maxPoints})</p>
@@ -110,7 +110,7 @@ export function AssessmentPanel() {
 
             <Link
               href="/"
-              className="self-start rounded-full bg-zinc-900 px-4 py-1 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900"
+              className="primary-button self-start"
             >
               Start a new session
             </Link>
@@ -123,7 +123,7 @@ export function AssessmentPanel() {
           type="button"
           onClick={() => void actions.assess()}
           disabled={!canAssess}
-          className="self-start rounded-full bg-zinc-900 px-4 py-1 text-sm text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+          className="primary-button self-start"
         >
           {state.pending.attempt ? "Assessing…" : "Assess my learner"}
         </button>
@@ -140,13 +140,13 @@ export function AssessmentPanel() {
               isPulsed = r.review.criteria.some((c) => c.requires.includes(state.selectedConceptId as ConceptId));
             }
             return (
-              <li key={r.questionId} className={`rounded-md border p-3 text-sm ${selected ? "border-zinc-400 bg-zinc-50 dark:bg-zinc-800" : "border-black/10 dark:border-white/15"}`}>
+              <li key={r.questionId} className={`answer-card answer-reveal ${selected ? "answer-selected" : ""}`}>
                 <button
                   type="button"
                   aria-pressed={selected}
                   onClick={() => actions.selectQuestion(selected ? undefined : r.questionId)}
-                  className={`flex w-full items-center justify-between text-left font-medium p-2 -mx-2 rounded-md transition-colors ${
-                    selected ? "bg-zinc-200 dark:bg-zinc-800" : isPulsed ? "outline outline-2 outline-amber-500 bg-amber-50 dark:bg-amber-900/20" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className={`answer-heading ${
+                    selected ? "answer-heading-selected" : isPulsed ? "answer-heading-pulsed" : ""
                   }`}
                 >
                   <span>{r.question.prompt}</span>
@@ -163,13 +163,13 @@ export function AssessmentPanel() {
                     <p className="text-xs text-amber-700 dark:text-amber-400">Next step: {r.nextStep}</p>
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         if (actions.beginReteach) {
-                          actions.beginReteach(r.questionId, r.nextStep!);
+                          await actions.beginReteach(r.questionId, r.nextStep!);
                         }
-                        setTimeout(() => document.getElementById("teach-input")?.focus(), 0);
+                        requestAnimationFrame(() => document.getElementById("teach-input")?.focus());
                       }}
-                      className="rounded bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900 outline outline-1 outline-amber-300 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-100"
+                      className="reteach-button"
                     >
                       Reteach this
                     </button>
@@ -233,7 +233,7 @@ export function AssessmentPanel() {
 
           {active.results.length > state.revealIndex && (
             <li>
-              <button type="button" onClick={() => actions.revealNext()} className="rounded-full border border-black/10 px-3 py-1 text-xs dark:border-white/15">Reveal next answer</button>
+              <button type="button" onClick={() => actions.revealNext()} className="secondary-button">Reveal next answer</button>
             </li>
           )}
           {active.status === "in_progress" && active.results.length === state.revealIndex && (
@@ -242,7 +242,7 @@ export function AssessmentPanel() {
                 type="button"
                 onClick={() => void actions.complete(active.id)}
                 disabled={!!state.pending.complete}
-                className="rounded-full bg-zinc-900 px-4 py-1 text-sm text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+                className="primary-button"
               >
                 {state.pending.complete ? "Completing…" : "Complete attempt"}
               </button>

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
@@ -13,16 +13,18 @@
     "check:bundle": "tsx scripts/check-bundle.ts",
     "check:secrets": "tsx scripts/check-secrets.ts",
     "check:env": "tsx scripts/check-env.ts",
+    "check:prod-guard": "tsx scripts/check-production-guard.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:status": "tsx scripts/db-status.ts",
     "db:reset:test": "tsx scripts/db-reset-test.ts",
     "eval:live": "node --conditions=react-server --import tsx scripts/eval-live.ts",
     "smoke:service": "node --conditions=react-server --import tsx scripts/smoke-service.ts",
     "smoke:http": "node --conditions=react-server --import tsx scripts/smoke-http.ts",
     "cleanup:debug": "tsx scripts/cleanup-debug.ts",
-    "e2e:scripted": "cross-env E2E_EVALUATOR=scripted playwright test",
+    "e2e:scripted": "cross-env E2E_EVALUATOR=scripted NEXT_PUBLIC_DEMO_HELPER=true playwright test",
     "e2e:live": "playwright test",
-    "verify": "npm run lint && npm run typecheck && npm run test && npm run check:content && npm run check:secrets && npm run build && npm run check:bundle"
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run check:content && npm run check:secrets && npm run build && npm run check:bundle && npm run check:prod-guard"
   },
   "dependencies": {
     "@google/genai": "^2.24.0",

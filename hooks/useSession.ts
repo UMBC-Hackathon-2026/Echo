@@ -52,7 +52,8 @@ function reducer(state: SessionState, action: Action): SessionState {
       const dto = action.payload;
       const active = dto.attempts.at(-1);
       const total = active?.results.length ?? 0;
-      const revealIndex = active?.status === "complete" ? total : Math.min(state.revealIndex, total);
+      const sameActiveAttempt = !!active && active.id === state.activeAttemptId;
+      const revealIndex = active?.status === "complete" ? total : sameActiveAttempt ? Math.min(state.revealIndex, total) : 0;
       const lastVer = state.recordHistory.at(-1)?.version;
       const recordHistory = lastVer === dto.record.version ? state.recordHistory : [...state.recordHistory, dto.record];
       return {

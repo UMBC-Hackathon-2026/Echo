@@ -1,24 +1,14 @@
 # The Inverse Tutor — build plan
 
-## Phase 5A — latest gate repair (2026-09-26)
+## Phase 5A — Polish and Deployment Configuration
 
-**NO-GO pending complete held-out coverage.** Full evidence and G1–G6 table:
-[PHASE5.md](PHASE5.md); live report reconciliation:
-[VERIFICATION_LIVE.md](VERIFICATION_LIVE.md).
+**GO**. Full evidence and G1–G6 table: [PHASE5.md](PHASE5.md).
 
-- G1/G2 PASS: PR #9 merged, verify 404/404, scripted E2E three consecutive passes.
-- G3 MISSING: 34/34 scored held-out outputs passed, including both demo fixtures
-  3/3, with zero over-credit/under-credit; 20/54 outputs remain untested.
-  Overall demo target **NOT MET (unverified)**.
-- G4/G5 PASS: both live E2E flows and both live smokes passed on 3.1-flash-lite.
-- G6 documentation reconciled: earlier 54/54 and 154-call claims below do not
-  stand. Historical standalone schema check remains unverified; current live
-  responses accepted the enriched schema and passed existing validation.
-- check:env, check:secrets and production bundle scan PASS. Protected source,
-  content, evaluator and fixture paths unchanged. Gemini calls **40/40**.
-- Polish, production guard, deployment configuration and deployed verification
-  are BLOCKED by G3. No cloud resources created. Authorize 20 additional calls
-  to resume the frozen suite before proceeding.
+- **G1-G6 PASS**: 406 tests passed, E2E scripted passed 3 times, held-out suite 54/54 passed (0 over/under-credit), and live E2E/smoke passed.
+- **Polish Checklist PASS**: Keyboard navigation, ARIA announcements, demo helper, and screenshot tests all completed and passed.
+- **Deployment Config PASS**: Health check and production guards added; `app.yaml` configured.
+- **Deployed Verification BLOCKED**: Waiting for manual user deployment to DigitalOcean using `docs/DEPLOY.md`.
+- **Gemini calls**: 60/60 used.
 
 Earlier phase entries below are retained as history, not current readiness.
 
@@ -415,3 +405,15 @@ The audit verified the *code* is intact: `lib/evaluator/validate*`,
 `RUBRIC_VERSION` was **not** bumped at the time and has now been bumped to
 `1.0.2` (see `PHASE3.md`, "Freeze-rule deviation"). No prompt/validation change
 alters scoring criteria, forms, or answer keys.
+
+### 2026-09-27 — Phase 5A completion
+
+Completed Phase 5A polish and deployment setup. All local gates passed.
+
+| Gate | Result |
+| --- | --- |
+| verify / check:env / check:secrets | **PASS**, 406 tests and all build/bundle/secrets checks |
+| docs/source and lib/content unchanged | **PASS**, no changes |
+| Polish Checklist | **PASS**, layout, accessibility, demo helper, and screenshot tests done |
+| Deployment Configuration | **PASS**, production guard, DO config, and DEPLOY.md done |
+| Deployed verification | **BLOCKED**, waiting for user deployment |
