@@ -1,7 +1,8 @@
 "use client";
 
 import { useSession } from "@/hooks/useSession";
-import type { ConceptState } from "@/lib/contracts";
+import { identifierLabel, rubricItemLabel } from "@/lib/client/presentation";
+import type { ConceptState, ConceptStateDTO } from "@/lib/contracts";
 
 const STATE_UI: Record<ConceptState, { label: string; icon: string }> = {
   not_taught: { label: "Not taught", icon: "○" },
@@ -9,12 +10,12 @@ const STATE_UI: Record<ConceptState, { label: string; icon: string }> = {
   demonstrated: { label: "Solid", icon: "●" },
 };
 
-const CONCEPT_LABEL: Record<string, string> = {
-  recursive_call: "Calls itself",
-  smaller_subproblem: "Smaller subproblem",
-  base_case: "Base case",
-  progress_toward_base_case: "Progress to base case",
-  return_path: "Return path",
+const MISSING_CONCEPT: ConceptStateDTO = {
+  state: "not_taught",
+  evidence: [],
+  conflicts: [],
+  uncertain: true,
+  reason: "No teaching-record data is available for this concept yet.",
 };
 
 export function ConceptMap() {
@@ -25,6 +26,9 @@ export function ConceptMap() {
   const activeAttempt = state.attempts.find((a) => a.id === state.activeAttemptId);
   const selectedResult = activeAttempt?.results.find((r) => r.questionId === selectedQuestionId);
   const blocking = new Set<string>(selectedResult?.blocking.concepts ?? []);
+  const misconceptionNames = new Map(
+    state.topic.rubricData.misconceptions.map((misconception) => [misconception.id, rubricItemLabel(misconception)]),
+  );
 
   return (
     <section aria-label="Concept map" className="panel-card concept-panel">
@@ -32,7 +36,7 @@ export function ConceptMap() {
       <ul className="concept-list">
         {state.topic.rubricData.concepts.map((concept) => {
           const id = concept.id;
-          const c = record.concepts[id];
+          const c = record.concepts[id] ?? MISSING_CONCEPT;
           const ui = STATE_UI[c.state];
           const selected = selectedConceptId === id;
           const pulsed = blocking.has(id);
@@ -48,7 +52,7 @@ export function ConceptMap() {
               >
                 <span>
                   <span aria-hidden className="mr-2">{ui.icon}</span>
-                  {CONCEPT_LABEL[id] ?? id}
+                  {rubricItemLabel(concept)}
                   {c.uncertain && <span className="ml-1 text-xs text-amber-600">(uncertain)</span>}
                 </span>
                 <span className={`concept-state state-${c.state}`}>{ui.label}</span>
@@ -65,7 +69,7 @@ export function ConceptMap() {
             {Object.entries(record.misconceptions).map(([id, m]) => (
               <li key={id} className="text-xs">
                 <span aria-hidden className="mr-1">{m.status === "active" ? "▲" : "✓"}</span>
-                {id} — {m.origin === "seeded" ? "the learner's starting belief" : "from your explanation"}, {m.status}
+                {misconceptionNames.get(id) ?? identifierLabel(id)} — {m.origin === "seeded" ? "the learner's starting belief" : "from your explanation"}, {m.status}
               </li>
             ))}
           </ul>

@@ -1,4 +1,4 @@
-import type { SessionDTO } from "@/lib/contracts";
+import type { ComparisonRowDTO, MessageDTO, SessionDTO } from "@/lib/contracts";
 
 /**
  * Typed browser API client. Same-origin fetch carries the httpOnly owner cookie
@@ -8,49 +8,113 @@ import type { SessionDTO } from "@/lib/contracts";
 export interface ApiError {
   status: number;
   error: string;
+  detail?: string;
   phase?: SessionDTO["phase"];
   revision?: number;
+  retryAfterSeconds?: number;
 }
 
 function isApiError(x: unknown): x is ApiError {
-  return typeof x === "object" && x !== null && "status" in x;
+  return typeof x === "object"
+    && x !== null
+    && "status" in x
+    && typeof x.status === "number"
+    && "error" in x
+    && typeof x.error === "string";
 }
 export const asApiError = (x: unknown): ApiError => (isApiError(x) ? x : { status: 0, error: "network" });
+
+export function apiErrorMessage(error: ApiError, fallback = "The request could not be completed."): string {
+  const serverMessage = error.error.includes(" ") ? error.error : undefined;
+  if (error.status === 0) return "Could not reach the server. Check your connection and try again.";
+  if (error.status === 400) return error.detail ?? serverMessage ?? "The request was missing required information.";
+  if (error.status === 404) return "The requested session or resource was not found.";
+  if (error.status === 409) return "This session changed. Refresh the latest state and try again.";
+  if (error.status === 422) {
+    if (error.error === "idempotency_mismatch") return "This action conflicts with an earlier request. Please try the action again.";
+    return error.detail ?? "The request could not be processed.";
+  }
+  if (error.status === 429) {
+    if (serverMessage) {
+      return error.retryAfterSeconds !== undefined
+        ? `${serverMessage} Try again in ${error.retryAfterSeconds} seconds.`
+        : serverMessage;
+    }
+    return error.retryAfterSeconds !== undefined
+      ? `Too many requests. Try again in ${error.retryAfterSeconds} seconds.`
+      : "Too many requests. Please wait before trying again.";
+  }
+  return fallback;
+}
 
 export function newIdempotencyKey(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-async function call(path: string, method: string, body?: unknown, idempotencyKey?: string): Promise<SessionDTO> {
-  const headers: Record<string, string> = { "content-type": "application/json" };
-  if (idempotencyKey) headers["idempotency-key"] = idempotencyKey;
+function retryAfterSeconds(response: Response): number | undefined {
+  const raw = response.headers.get("retry-after");
+  if (raw === null) return undefined;
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
+}
+
+async function checkedFetch(path: string, init: RequestInit): Promise<Response> {
   let res: Response;
   try {
-    res = await fetch(path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
+    res = await fetch(path, init);
   } catch {
     throw { status: 0, error: "network" } as ApiError;
   }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw { status: res.status, ...(data as object) } as ApiError;
-  return data as SessionDTO;
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const body = typeof data === "object" && data !== null ? data as Record<string, unknown> : {};
+    throw {
+      ...body,
+      status: res.status,
+      error: typeof body.error === "string" ? body.error : "request_failed",
+      retryAfterSeconds: retryAfterSeconds(res),
+    } as ApiError;
+  }
+  return res;
+}
+
+async function jsonCall<T>(path: string, method: string, body?: unknown, idempotencyKey?: string): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers["content-type"] = "application/json";
+  if (idempotencyKey) headers["idempotency-key"] = idempotencyKey;
+  const res = await checkedFetch(path, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  return res.json() as Promise<T>;
 }
 
 export const api = {
-  createSession: (args?: { topicId?: string }) => call("/api/sessions", "POST", args || {}),
-  getSession: (id: string) => call(`/api/sessions/${id}`, "GET"),
-  submitTeaching: (id: string, args: { text: string; expectedRevision: number; idempotencyKey: string }) =>
-    call(`/api/sessions/${id}/messages`, "POST", { text: args.text, expectedRevision: args.expectedRevision }, args.idempotencyKey),
+  createSession: (args?: { topicId?: string }) => jsonCall<SessionDTO>("/api/sessions", "POST", args || {}),
+  getSession: (id: string) => jsonCall<SessionDTO>(`/api/sessions/${id}`, "GET"),
+  submitTeaching: (id: string, args: { text: string; inputMode: MessageDTO["inputMode"]; expectedRevision: number; idempotencyKey: string }) =>
+    jsonCall<SessionDTO>(
+      `/api/sessions/${id}/messages`,
+      "POST",
+      { text: args.text, inputMode: args.inputMode, expectedRevision: args.expectedRevision },
+      args.idempotencyKey,
+    ),
   retry: (id: string, msgId: string, args: { expectedRevision: number }) =>
-    call(`/api/sessions/${id}/messages/${msgId}/retry`, "POST", { expectedRevision: args.expectedRevision }),
+    jsonCall<SessionDTO>(`/api/sessions/${id}/messages/${msgId}/retry`, "POST", { expectedRevision: args.expectedRevision }),
   createAttempt: (id: string, args: { expectedRevision: number; idempotencyKey: string }) =>
-    call(`/api/sessions/${id}/attempts`, "POST", { expectedRevision: args.expectedRevision }, args.idempotencyKey),
+    jsonCall<SessionDTO>(`/api/sessions/${id}/attempts`, "POST", { expectedRevision: args.expectedRevision }, args.idempotencyKey),
   complete: (attemptId: string, args: { sessionId: string; expectedRevision: number; idempotencyKey: string }) =>
-    call(`/api/attempts/${attemptId}/complete`, "POST", { sessionId: args.sessionId, expectedRevision: args.expectedRevision }, args.idempotencyKey),
+    jsonCall<SessionDTO>(`/api/attempts/${attemptId}/complete`, "POST", { sessionId: args.sessionId, expectedRevision: args.expectedRevision }, args.idempotencyKey),
   reteach: (id: string, args: { questionId: string; nextStepHint: string; expectedRevision: number; idempotencyKey: string }) =>
-    call(`/api/sessions/${id}/reteach`, "POST", { questionId: args.questionId, nextStepHint: args.nextStepHint, expectedRevision: args.expectedRevision }, args.idempotencyKey),
-  getComparison: async (id: string): Promise<import("@/lib/contracts").ComparisonRowDTO[]> => {
-    const res = await fetch(`/api/sessions/${id}/comparison`, { method: "GET" });
-    if (!res.ok) throw { status: res.status, error: "network" };
-    return res.json();
+    jsonCall<SessionDTO>(`/api/sessions/${id}/reteach`, "POST", { questionId: args.questionId, nextStepHint: args.nextStepHint, expectedRevision: args.expectedRevision }, args.idempotencyKey),
+  getComparison: (id: string) => jsonCall<ComparisonRowDTO[]>(`/api/sessions/${id}/comparison`, "GET"),
+  synthesizeSpeech: async (source: "learner_message" | "question_result", id: string): Promise<Blob> => {
+    const res = await checkedFetch("/api/voice/tts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ source, id }),
+    });
+    return res.blob();
   },
 };

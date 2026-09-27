@@ -43,6 +43,17 @@ function ErrorBanner() {
   return <p role="alert" className="rounded-md bg-red-50 px-3 py-1 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{err.message}</p>;
 }
 
+function SessionTitle() {
+  const { state } = useSession();
+  return (
+    <div>
+      <p className="eyebrow">{state.topic.name}</p>
+      <h1>The Inverse Tutor</h1>
+      <p className="session-subtitle">Teach it. Test it. Trace what changed.</p>
+    </div>
+  );
+}
+
 function HowItWorks() {
   return (
     <details open className="how-it-works">
@@ -79,11 +90,7 @@ export default function SessionPage() {
       <LiveAnnouncer />
       <main className="session-shell">
         <header className="session-header">
-          <div>
-            <p className="eyebrow">Recursion lab</p>
-            <h1>The Inverse Tutor</h1>
-            <p className="session-subtitle">Teach it. Test it. Trace what changed.</p>
-          </div>
+          <SessionTitle />
           <div className="flex items-center gap-4">
             <VoiceToggle />
             <HowItWorks />

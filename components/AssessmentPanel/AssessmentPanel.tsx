@@ -1,5 +1,6 @@
 import { useSession } from "@/hooks/useSession";
-import type { Outcome, ConceptId, ConceptState } from "@/lib/contracts";
+import { identifierLabel, questionTypeLabel, rubricItemLabel } from "@/lib/client/presentation";
+import type { Outcome, ConceptState } from "@/lib/contracts";
 import Link from "next/link";
 
 const OUTCOME_UI: Record<Outcome, { label: string; icon: string }> = {
@@ -15,12 +16,16 @@ const STATE_LABEL: Record<ConceptState, string> = {
   demonstrated: "Solid",
 };
 
-const SEEDED_BELIEF_ID = "recursion_runs_forever";
-
 export function AssessmentPanel() {
   const { state, actions } = useSession();
   const active = state.attempts.find((a) => a.id === state.activeAttemptId);
   const revealed = active ? active.results.slice(0, state.revealIndex) : [];
+  const conceptNames = new Map(
+    state.topic.rubricData.concepts.map((concept) => [concept.id, rubricItemLabel(concept)]),
+  );
+  const misconceptionNames = new Map(
+    state.topic.rubricData.misconceptions.map((misconception) => [misconception.id, rubricItemLabel(misconception)]),
+  );
 
   const turnBlocked = state.messages.some((m) => m.role === "student" && (m.evalStatus === "pending" || m.evalStatus === "failed"));
   const canAssess = (state.phase === "teaching" || state.phase === "reteaching") && !turnBlocked && !state.pending.attempt && !state.pending.teach;
@@ -31,8 +36,13 @@ export function AssessmentPanel() {
 
       {state.phase === "comparing" && state.comparison && (() => {
         const concepts = state.comparison[0];
+        if (!concepts) {
+          return <p className="comparison-note">No comparison results are available for this session.</p>;
+        }
         const afterAttempt = state.attempts.find((a) => a.attemptNo === 2);
-        const beliefResolved = afterAttempt?.pinnedRecord.misconceptions[SEEDED_BELIEF_ID]?.status === "resolved";
+        const seededBeliefs = Object.values(afterAttempt?.pinnedRecord.misconceptions ?? {})
+          .filter((misconception) => misconception.origin === "seeded");
+        const beliefsResolved = seededBeliefs.every((misconception) => misconception.status === "resolved");
         return (
           <div className="flex flex-col gap-4">
             <p className="comparison-note">
@@ -41,6 +51,7 @@ export function AssessmentPanel() {
             <ul className="flex flex-col gap-3">
               {state.comparison.map((c) => {
                 const improved = c.after.points > c.before.points;
+                const typeLabel = questionTypeLabel(c.type);
                 return (
                   <li
                     key={c.pairId}
@@ -50,7 +61,7 @@ export function AssessmentPanel() {
                     data-improved={improved}
                     className="rounded-md border p-3 text-sm border-black/10 dark:border-white/15"
                   >
-                    <h3 className="font-semibold">{c.pairId} — {c.type}</h3>
+                    <h3 className="font-semibold">{c.pairId} — {typeLabel}</h3>
                     <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:gap-4">
                       <div className="flex-1">
                         <span className="text-xs text-zinc-500">Before</span>
@@ -64,7 +75,7 @@ export function AssessmentPanel() {
                       </div>
                     </div>
                     <div className="mt-2 text-xs font-medium">
-                      {c.type}: {c.before.points} of {c.before.maxPoints} → {c.after.points} of {c.after.maxPoints} {improved ? "(improved)" : "(no change)"}
+                      {typeLabel}: {c.before.points} of {c.before.maxPoints} → {c.after.points} of {c.after.maxPoints} {improved ? "(improved)" : "(no change)"}
                     </div>
                   </li>
                 );
@@ -88,17 +99,19 @@ export function AssessmentPanel() {
                       data-changed={changed}
                       className="flex items-center justify-between gap-2"
                     >
-                      <span>{concept.name || cid}</span>
+                      <span>{rubricItemLabel(concept)}</span>
                       <span className="whitespace-nowrap text-xs text-zinc-600 dark:text-zinc-400">
-                        {STATE_LABEL[before]} → {STATE_LABEL[after]}{changed ? " (changed)" : ""}
+                        {STATE_LABEL[before] ?? "Not available"} → {STATE_LABEL[after] ?? "Not available"}{changed ? " (changed)" : ""}
                       </span>
                     </li>
                   );
                 })}
               </ul>
-              <p data-testid="belief-status" data-resolved={beliefResolved} className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
-                Starting belief: {beliefResolved ? "resolved" : "still active"}
-              </p>
+              {seededBeliefs.length > 0 && (
+                <p data-testid="belief-status" data-resolved={beliefsResolved} className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+                  Starting {seededBeliefs.length === 1 ? "belief" : "beliefs"}: {beliefsResolved ? "resolved" : "still active"}
+                </p>
+              )}
             </div>
 
             <Link
@@ -128,9 +141,11 @@ export function AssessmentPanel() {
           {revealed.map((r) => {
             const o = OUTCOME_UI[r.outcome];
             const selected = state.selectedQuestionId === r.questionId;
+            const selectedConceptId = state.selectedConceptId;
+            const review = active.status === "complete" ? r.review : undefined;
             let isPulsed = false;
-            if (state.selectedConceptId && r.review) {
-              isPulsed = r.review.criteria.some((c) => c.requires.includes(state.selectedConceptId as ConceptId));
+            if (selectedConceptId && review) {
+              isPulsed = review.criteria.some((c) => c.requires.includes(selectedConceptId));
             }
             return (
               <li key={r.questionId} className={`answer-card answer-reveal ${selected ? "answer-selected" : ""}`}>
@@ -188,17 +203,18 @@ export function AssessmentPanel() {
                           : "Not in your explanation yet";
                         return (
                           <li key={cid}>
-                            <span className="font-medium">{cid}</span>: {quotes}
+                            <span className="font-medium">{conceptNames.get(cid) ?? identifierLabel(cid)}</span>: {quotes}
                           </li>
                         );
                       })}
                       {r.blocking.misconceptions.map((mid) => {
                         const misc = active.pinnedRecord.misconceptions[mid];
-                        if (!misc) return <li key={mid}>{mid}</li>;
+                        const label = misconceptionNames.get(mid) ?? identifierLabel(mid);
+                        if (!misc) return <li key={mid}>{label}</li>;
                         if (misc.origin === "seeded") {
                           return (
                             <li key={mid}>
-                              <span className="font-medium">{mid}</span>: The learner&apos;s starting belief
+                              <span className="font-medium">{label}</span>: The learner&apos;s starting belief
                             </li>
                           );
                         }
@@ -207,7 +223,7 @@ export function AssessmentPanel() {
                           : "";
                         return (
                           <li key={mid}>
-                            <span className="font-medium">{mid}</span>: Something your explanation said — {quotes}
+                            <span className="font-medium">{label}</span>: Something your explanation said — {quotes}
                           </li>
                         );
                       })}
@@ -215,13 +231,13 @@ export function AssessmentPanel() {
                   </div>
                 )}
 
-                {r.review && (
+                {review && (
                   <details className="mt-2 text-xs text-zinc-500">
                     <summary className="cursor-pointer">Answer key &amp; criteria</summary>
-                    <p className="mt-1">{r.review.answerKey}</p>
+                    <p className="mt-1">{review.answerKey}</p>
                     <ul className="mt-1 list-disc pl-4">
-                      {r.review.guidance?.map((text, index) => <li key={`guidance-${index}`}>{text}</li>)}
-                      {r.review.criteria.map((c) => (
+                      {review.guidance?.map((text, index) => <li key={`guidance-${index}`}>{text}</li>)}
+                      {review.criteria.map((c) => (
                         <li key={c.id}>{c.text} ({c.points} pt) — {r.earnedCriteria.includes(c.id) ? "earned" : "not earned"}</li>
                       ))}
                     </ul>
