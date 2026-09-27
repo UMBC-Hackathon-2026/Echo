@@ -59,7 +59,7 @@ describe.skipIf(!hasTestDb)("phase 4 loop (DATABASE_URL_TEST)", () => {
     st = await s.createAttempt({ sessionId, ownerToken, expectedRevision: st.revision, idempotencyKey: "a2" });
     expect(st.phase).toBe("reassessing");
     const attempt2 = st.attempts.find((a) => a.attemptNo === 2)!;
-    expect(attempt2.formId).toBe("recursion.B");
+    expect(attempt2.formId).toBe("dynamic.B");
     st = await s.completeAttempt({ sessionId, ownerToken, attemptId: attempt2.id, expectedRevision: st.revision, idempotencyKey: "c2" });
     expect(st.phase).toBe("comparing");
     return st;

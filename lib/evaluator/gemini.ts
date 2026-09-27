@@ -1,7 +1,7 @@
 import "server-only";
 import { GoogleGenAI } from "@google/genai";
 import { validateEvaluation, type ValidatedEvaluation } from "./validate";
-import { buildSystemInstruction, buildUserText, RESPONSE_SCHEMA } from "./prompt";
+import { buildSystemInstruction, buildUserText, buildResponseSchema } from "./prompt";
 import { runWithBudget, type AttemptOutcome } from "./budget";
 import type { Evaluator, EvaluateArgs, EvaluationResult } from "./evaluator";
 import { maybeWriteDebugPayload } from "./debug";
@@ -35,8 +35,10 @@ export class GeminiEvaluator implements Evaluator {
     this.ai = new GoogleGenAI({ apiKey, httpOptions: { retryOptions: { attempts: 1 } } });
   }
 
-  async evaluate({ sessionId, turns, signal }: EvaluateArgs): Promise<EvaluationResult> {
-    const systemInstruction = buildSystemInstruction();
+  async evaluate({ sessionId, turns, topic, signal }: EvaluateArgs): Promise<EvaluationResult> {
+    if (!topic) throw new Error("Missing topic in evaluate args");
+    const systemInstruction = buildSystemInstruction(topic);
+    const RESPONSE_SCHEMA = buildResponseSchema(topic);
     const userText = buildUserText(turns);
     const started = Date.now();
 
@@ -56,7 +58,7 @@ export class GeminiEvaluator implements Evaluator {
           config: {
             systemInstruction,
             responseMimeType: "application/json",
-            responseJsonSchema: RESPONSE_SCHEMA,
+            responseSchema: RESPONSE_SCHEMA as any,
             temperature: 0,
             abortSignal: ac.signal,
           },
@@ -83,7 +85,7 @@ export class GeminiEvaluator implements Evaluator {
         return { ok: false, reason: "invalid_output" };
       }
       try {
-        return { ok: true, value: validateEvaluation(parsed, { sessionId, turns }) };
+        return { ok: true, value: validateEvaluation(parsed, { sessionId, turns, topic }) };
       } catch {
         return { ok: false, reason: "invalid_output" };
       }

@@ -49,7 +49,7 @@ export interface QuestionResultDTO {
 export interface AttemptDTO {
   id: string;
   attemptNo: 1 | 2;
-  formId: "recursion.A" | "recursion.B";
+  formId: string;
   formVersion: string;
   status: "in_progress" | "complete";
   results: QuestionResultDTO[];
@@ -104,6 +104,11 @@ export interface ComparisonRowDTO {
 
 export interface SessionDTO {
   sessionId: string;
+  topic: {
+    id: string;
+    name: string;
+    rubricData: any; // DynamicRubric goes here
+  };
   phase:
     | "teaching"
     | "assessing"

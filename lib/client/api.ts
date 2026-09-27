@@ -36,7 +36,7 @@ async function call(path: string, method: string, body?: unknown, idempotencyKey
 }
 
 export const api = {
-  createSession: () => call("/api/sessions", "POST", {}),
+  createSession: (args?: { topicId?: string }) => call("/api/sessions", "POST", args || {}),
   getSession: (id: string) => call(`/api/sessions/${id}`, "GET"),
   submitTeaching: (id: string, args: { text: string; expectedRevision: number; idempotencyKey: string }) =>
     call(`/api/sessions/${id}/messages`, "POST", { text: args.text, expectedRevision: args.expectedRevision }, args.idempotencyKey),

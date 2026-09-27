@@ -179,7 +179,7 @@ export async function getAttemptsWithResults(exec: Executor, sessionId: string):
     out.push({
       id: a.id,
       attemptNo: a.attemptNo as 1 | 2,
-      formId: a.formId as "recursion.A" | "recursion.B",
+      formId: a.formId,
       formVersion: a.formVersion,
       status: a.status as "in_progress" | "complete",
       results,

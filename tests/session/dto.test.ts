@@ -1,16 +1,17 @@
+import { defaultTopic } from "../helpers/phase2";
 import { describe, it, expect } from "vitest";
 import { assessQuestion } from "@/lib/learner/gate";
 import { createInitialRecord } from "@/lib/learner/record";
 import { FORM_A } from "@/lib/content/recursion/forms";
 import { toAttemptDTO, type AttemptShape, type ResultRow } from "@/lib/session/dto";
 
-const { record } = createInitialRecord({ id: "r0", sessionId: "s1" });
+const { record } = createInitialRecord({ id: "r0", sessionId: "s1", conceptIds: defaultTopic.rubricData.concepts.map((c: any) => c.id), topicRubricData: defaultTopic.rubricData });
 const question = FORM_A.questions[0]; // rec.A.P1
-const result = assessQuestion(record, question);
+const result = assessQuestion(record, question, defaultTopic);
 const rows: ResultRow[] = [{ result, question }];
 
 function shape(status: "in_progress" | "complete"): AttemptShape {
-  return { id: "a1", attemptNo: 1, formId: "recursion.A", formVersion: FORM_A.version, status, results: rows, pinnedRecord: record };
+  return { id: "a1", attemptNo: 1, formId: "dynamic.A", formVersion: FORM_A.version, status, results: rows, pinnedRecord: record };
 }
 
 describe("public DTO mappers — leakage", () => {

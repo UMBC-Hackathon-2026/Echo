@@ -83,7 +83,7 @@ export type Question = z.infer<typeof Question>;
 
 export const Form = z
   .object({
-    id: z.enum(["recursion.A", "recursion.B"]),
+    id: z.string(),
     version: z.string(),
     questions: z.array(Question),
   })

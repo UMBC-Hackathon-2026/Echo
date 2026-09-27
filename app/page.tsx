@@ -1,24 +1,103 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { api, asApiError } from "@/lib/client/api";
 
+const MAX_FILES = 20;
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 export default function Home() {
   const router = useRouter();
+  const [topicName, setTopicName] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  async function start() {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    if (!e.target.files) return;
+    
+    const selectedFiles = Array.from(e.target.files);
+    
+    if (selectedFiles.length + files.length > MAX_FILES) {
+      setError(`You can only upload up to ${MAX_FILES} PDFs.`);
+      return;
+    }
+
+    const validFiles = selectedFiles.filter(file => {
+      if (file.type !== "application/pdf") {
+        setError("Only PDF files are allowed.");
+        return false;
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        setError(`File ${file.name} exceeds the ${MAX_FILE_SIZE_MB}MB limit.`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length > 0) {
+      setFiles(prev => [...prev, ...validFiles]);
+    }
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  async function start(e: React.FormEvent) {
+    e.preventDefault();
+    if (!topicName.trim()) {
+      setError("Please provide a topic name.");
+      return;
+    }
+    if (files.length === 0) {
+      setError("Please upload at least one PDF.");
+      return;
+    }
+
     setBusy(true);
     setError(null);
     try {
-      const dto = await api.createSession();
+      const formData = new FormData();
+      formData.append("topicName", topicName);
+      files.forEach(f => formData.append("files", f));
+      
+      const res = await fetch("/api/topics/create", { method: "POST", body: formData });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to extract concepts");
+      }
+      const { topicId } = await res.json();
+      
+      const dto = await api.createSession({ topicId });
       router.push(`/session/${dto.sessionId}`);
-    } catch (e) {
-      setError(asApiError(e).error === "network" ? "Could not reach the server." : "Could not start a session.");
+    } catch (e: any) {
+      setError(e.message || "Could not extract concepts from materials.");
       setBusy(false);
     }
+  }
+
+  if (busy) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center gap-6 p-8 text-center">
+        <div className="flex flex-col gap-4 items-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900 dark:border-zinc-800 dark:border-t-zinc-100"></div>
+          <h1 className="text-2xl font-semibold tracking-tight">Analyzing materials...</h1>
+          <p className="text-zinc-600 dark:text-zinc-400">
+            Extracting core concepts, common misconceptions, and building an assessment rubric.<br/>
+            This usually takes 30-60 seconds.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -26,22 +105,69 @@ export default function Home() {
       <div className="flex flex-col gap-3">
         <h1 className="text-3xl font-semibold tracking-tight">The Inverse Tutor</h1>
         <p className="text-lg text-zinc-600 dark:text-zinc-400">
-          If you truly understand something, can you teach it well enough for someone else to use it? Teach a simulated
-          learner about recursion, watch it take an assessment, and trace each answer back to your own words.
+          Upload your study materials (slides, notes, practice exams). We will simulate a learner who knows nothing about it. Teach the simulated learner, watch it take an assessment, and see how well you explained the core concepts.
         </p>
       </div>
-      <button
-        type="button"
-        onClick={() => void start()}
-        disabled={busy}
-        className="rounded-full bg-zinc-900 px-6 py-2 text-base font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
-      >
-        {busy ? "Starting…" : "Start teaching recursion"}
-      </button>
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-      <p className="max-w-xl text-xs text-zinc-500">
-        The learner is a simulation; its answers come only from the verified teaching record, and its score reflects the
-        explanation, not your own mastery.
+      
+      <form onSubmit={start} className="w-full flex flex-col gap-5 mt-4">
+        <div className="flex flex-col gap-2">
+          <label htmlFor="topic" className="text-sm font-medium">Topic Name</label>
+          <input 
+            id="topic"
+            type="text" 
+            value={topicName}
+            onChange={(e) => setTopicName(e.target.value)}
+            placeholder="e.g. Photosynthesis, Binary Search Trees..."
+            className="rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-base outline-none focus:border-zinc-500 dark:border-zinc-700 dark:focus:border-zinc-400"
+            required
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium">Study Materials (PDF only, up to {MAX_FILES})</label>
+          <div className="rounded-md border-2 border-dashed border-zinc-300 p-6 flex flex-col items-center justify-center gap-2 dark:border-zinc-700">
+            <span className="text-sm text-zinc-500">Drag and drop or select files</span>
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              accept="application/pdf"
+              multiple 
+              onChange={handleFileChange}
+              className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-zinc-100 file:text-zinc-900 hover:file:bg-zinc-200 dark:file:bg-zinc-800 dark:file:text-zinc-100"
+            />
+          </div>
+          
+          {files.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-2">
+              {files.map((file, i) => (
+                <li key={i} className="flex items-center justify-between bg-zinc-50 px-3 py-2 rounded-md text-sm dark:bg-zinc-800/50">
+                  <span className="truncate max-w-[80%]">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                  <button 
+                    type="button" 
+                    onClick={() => removeFile(i)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={busy}
+          className="mt-2 w-full rounded-full bg-zinc-900 px-6 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+        >
+          {busy ? "Starting…" : "Start teaching"}
+        </button>
+      </form>
+      
+      <p className="max-w-xl text-xs text-zinc-500 mt-4">
+        The learner is a simulation; its answers come only from the verified teaching record, and its score reflects the explanation, not your own mastery.
       </p>
     </main>
   );

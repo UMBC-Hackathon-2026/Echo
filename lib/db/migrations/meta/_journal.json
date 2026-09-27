@@ -15,6 +15,13 @@
       "when": 1790455216767,
       "tag": "0001_sticky_patch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790491161962,
+      "tag": "0002_superb_jocasta",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,16 @@ export function turn(turn_id: string, text: string): StudentTurn {
   return { session_id: "session", turn_id, role: "student", text };
 }
 
+export const defaultTopic = {
+  id: "test",
+  name: "Recursion",
+  rubricData: {
+    concepts: CONCEPT_IDS.map((id) => ({ id, name: id, examples: [] })),
+    misconceptions: [{ id: "recursion_runs_forever", description: "Runs forever", resolutionConcepts: ["base_case", "progress_toward_base_case"] }],
+    questions: []
+  }
+};
+
 export function proposal(id: ConceptId = "base_case", text = "It stops at zero.", turn_id = "t1"): EvaluatorOutput {
   return {
     concepts: [{ id, state: "demonstrated", evidence: [{ turn_id, quote: text }], conflicts: [], resolution: "none", reason: "Fixture evaluator judgement" }],

@@ -9,10 +9,8 @@ import type { Executor } from "@/lib/db/repository";
 import { createInitialRecord, createLearningRecord } from "@/lib/learner/record";
 import { selectProbe } from "@/lib/learner/probe";
 import { assessQuestion, GATE_VERSION } from "@/lib/learner/gate";
-import { getForm } from "@/lib/content/recursion/forms";
-import { RUBRIC_VERSION } from "@/lib/content/recursion/rubric";
+import { RUBRIC_VERSION } from "@/lib/learner/record";
 import { VALIDATOR_VERSION } from "@/lib/evaluator/validate";
-import { RECURSION_RUNS_FOREVER } from "@/lib/content/recursion/misconceptions";
 import type { Evaluator } from "@/lib/evaluator/evaluator";
 import { toSessionDTO } from "./dto";
 import { ConflictError, IdempotencyMismatchError, InvalidInputError, NotFoundError } from "./errors";
@@ -93,11 +91,23 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
     if (!session) throw new NotFoundError();
     const record = await repo.getLatestRecord(exec, sessionId);
     if (!record) throw new NotFoundError("record missing");
-    const [messages, attempts] = await Promise.all([
+    const [messages, attempts, topicsRows] = await Promise.all([
       repo.getMessages(exec, sessionId),
       repo.getAttemptsWithResults(exec, sessionId),
+      exec.select().from(schema.topics).where(eq(schema.topics.id, session.topicId)).limit(1)
     ]);
-    const dto = toSessionDTO({ sessionId, phase: session.phase, revision: session.revision, cycle: session.cycle, messages, record, attempts });
+    const topic = topicsRows[0];
+    if (!topic) throw new Error("Topic not found");
+    const dto = toSessionDTO({ 
+      sessionId, 
+      topic: { id: topic.id, name: topic.name, rubricData: topic.rubricData },
+      phase: session.phase, 
+      revision: session.revision, 
+      cycle: session.cycle, 
+      messages, 
+      record, 
+      attempts 
+    });
     if (session.phase === "comparing" && attempts.length === 2) {
       const [a1, a2] = attempts;
       const c1 = a1.pinnedRecord.concepts;
@@ -134,12 +144,55 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
   }
 
   return {
-    async createSession({ topicId = "recursion" }) {
+    async createSession({ topicId: providedTopicId }) {
       const token = newOwnerToken();
       const sessionId = randomUUID();
       const recordId = randomUUID();
-      const { record, events } = createInitialRecord({ id: recordId, sessionId });
       await db.transaction(async (tx) => {
+        let topicId = providedTopicId;
+        let topicRow: any = undefined;
+        if (!topicId) {
+          topicId = randomUUID();
+          topicRow = {
+            id: topicId,
+            name: "Default Topic",
+            rubricData: {
+              concepts: [
+                { id: "recursive_call", name: "Recursive Call" },
+                { id: "smaller_subproblem", name: "Smaller Subproblem" },
+                { id: "base_case", name: "Base Case" },
+                { id: "progress_toward_base_case", name: "Progress Toward Base Case" },
+                { id: "return_path", name: "Return Path" },
+              ],
+              misconceptions: [{ id: "recursion_runs_forever", description: "Runs forever", resolutionConcepts: ["base_case", "progress_toward_base_case"] }],
+              questions: [
+                {
+                  id: "dyn.A.P1",
+                  pairId: "P1",
+                  type: "trace",
+                  text: "Question 1",
+                  answerKey: { expectedAnswer: "Yes" },
+                  criteria: [{ id: "c1", points: 2, requires: ["base_case"] }],
+                  fragments: [{ id: "f1", kind: "uncertain", text: "hmm" }],
+                  nextStep: {
+                    base_case: "Review the base case.",
+                    recursion_runs_forever: "Recursion doesn't run forever if you have a base case."
+                  },
+                  relevantMisconceptions: ["recursion_runs_forever"]
+                }
+              ]
+            },
+            status: "ready",
+          };
+          await tx.insert(schema.topics).values(topicRow);
+        } else {
+          const tRows = await tx.select().from(schema.topics).where(eq(schema.topics.id, topicId)).limit(1);
+          topicRow = tRows[0];
+          if (!topicRow) throw new NotFoundError("topic missing");
+        }
+
+        const { record, events } = createInitialRecord({ id: recordId, sessionId, conceptIds: Array.from(topicRow.rubricData.concepts.map((c: any) => c.id)), topicRubricData: topicRow.rubricData });
+
         await tx.insert(schema.sessions).values({
           id: sessionId,
           ownerTokenHash: hashToken(token),
@@ -164,7 +217,7 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
           sessionId,
           turnNo: 1,
           role: "learner",
-          content: RECURSION_RUNS_FOREVER.openingLine,
+          content: (topicRow.rubricData as any)?.misconceptions?.[0]?.openingLine || "Wait, doesn't a function calling itself just run forever?",
           inputMode: "typed",
           cycle: 1,
           evalStatus: "not_applicable",
@@ -208,7 +261,16 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
 
       // Gemini call — NO transaction open.
       const turns = await repo.getStudentTurns(db, sessionId);
-      const result = await evaluator.evaluate({ sessionId, turns });
+      const sessionRow = await repo.getSession(db, sessionId);
+      if (!sessionRow) throw new NotFoundError();
+      const tRows = await db.select().from(schema.topics).where(eq(schema.topics.id, sessionRow.topicId)).limit(1);
+      const topicRow = tRows[0];
+      if (!topicRow) throw new NotFoundError("topic missing");
+      const result = await evaluator.evaluate({ 
+        sessionId, 
+        turns, 
+        topic: { id: topicRow.id, name: topicRow.name, rubricData: topicRow.rubricData } 
+      });
 
       if (!result.ok) {
         await db.transaction(async (tx) => {
@@ -231,14 +293,14 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
         const previous = await repo.getLatestRecord(tx, sessionId);
         if (!previous) throw new NotFoundError("previous record missing");
         const newRecordId = randomUUID();
-        const { record, events } = createLearningRecord({ id: newRecordId, cycle: s.cycle, previous, evaluation: result.evaluation });
+        const { record, events } = createLearningRecord({ id: newRecordId, cycle: s.cycle, previous, evaluation: result.evaluation, topicRubricData: topicRow.rubricData });
         await tx.insert(schema.learningRecords).values({
           id: newRecordId, sessionId, version: record.version, cycle: record.cycle,
           record: record,
           rubricVersion: RUBRIC_VERSION, validatorVersion: VALIDATOR_VERSION, evaluatorModel: result.model, sourceMessageId: pendingMessageId,
         });
         await persistEvents(tx, sessionId, newRecordId, events);
-        const probe = selectProbe(record);
+        const probe = selectProbe(record, topicRow);
         if (probe) {
           const probeTurn = await repo.nextTurnNo(tx, sessionId);
           await tx.insert(schema.messages).values({
@@ -273,7 +335,16 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
       });
 
       const turns = await repo.getStudentTurns(db, sessionId);
-      const result = await evaluator.evaluate({ sessionId, turns });
+      const sessionRow = await repo.getSession(db, sessionId);
+      if (!sessionRow) throw new NotFoundError();
+      const tRows = await db.select().from(schema.topics).where(eq(schema.topics.id, sessionRow.topicId)).limit(1);
+      const topicRow = tRows[0];
+      if (!topicRow) throw new NotFoundError("topic missing");
+      const result = await evaluator.evaluate({ 
+        sessionId, 
+        turns, 
+        topic: { id: topicRow.id, name: topicRow.name, rubricData: topicRow.rubricData } 
+      });
       if (!result.ok) {
         await db.transaction((tx) =>
           tx.update(schema.messages).set({ evalStatus: "failed", evalError: result.reason }).where(eq(schema.messages.id, messageId)));
@@ -287,14 +358,14 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
         const previous = await repo.getLatestRecord(tx, sessionId);
         if (!previous) throw new NotFoundError();
         const newRecordId = randomUUID();
-        const { record, events } = createLearningRecord({ id: newRecordId, cycle: s.cycle, previous, evaluation: result.evaluation });
+        const { record, events } = createLearningRecord({ id: newRecordId, cycle: s.cycle, previous, evaluation: result.evaluation, topicRubricData: topicRow.rubricData });
         await tx.insert(schema.learningRecords).values({
           id: newRecordId, sessionId, version: record.version, cycle: record.cycle,
           record: record,
           rubricVersion: RUBRIC_VERSION, validatorVersion: VALIDATOR_VERSION, evaluatorModel: result.model, sourceMessageId: messageId,
         });
         await persistEvents(tx, sessionId, newRecordId, events);
-        const probe = selectProbe(record);
+        const probe = selectProbe(record, topicRow);
         if (probe) {
           const probeTurn = await repo.nextTurnNo(tx, sessionId);
           await tx.insert(schema.messages).values({
@@ -326,17 +397,22 @@ export function createSessionService(opts: { evaluator: Evaluator; db?: Db }): S
           : await repo.getLatestRecord(tx, sessionId);
         if (!record) throw new NotFoundError("record not found");
 
-        const formId = s.phase === "teaching" ? "recursion.A" : "recursion.B";
-        const form = getForm(formId);
+        const tRows = await tx.select().from(schema.topics).where(eq(schema.topics.id, s.topicId)).limit(1);
+        const topicRow = tRows[0];
+        if (!topicRow) throw new NotFoundError("topic missing");
+
+        const formId = s.phase === "teaching" ? "dynamic.A" : "dynamic.B";
+        const questions = (topicRow.rubricData as any).questions;
         const attemptId = randomUUID();
         const attemptNo = s.phase === "teaching" ? 1 : 2;
         await tx.insert(schema.assessmentAttempts).values({
-          id: attemptId, sessionId, attemptNo, formId: form.id, formVersion: form.version,
+          id: attemptId, sessionId, attemptNo, formId, formVersion: "1.0.0",
           gateVersion: GATE_VERSION, rubricVersion: RUBRIC_VERSION, learningRecordId: record.id,
-          status: "in_progress", expectedResults: form.questions.length,
+          status: "in_progress", expectedResults: questions.length,
         });
-        for (const question of form.questions) {
-          const r = assessQuestion(record, question);
+
+        for (const question of questions) {
+          const r = assessQuestion(record, question, topicRow);
           await tx.insert(schema.questionResults).values({
             attemptId, questionId: r.questionId, pairId: r.pairId,
             questionSnapshot: question,

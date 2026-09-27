@@ -7,3 +7,4 @@ export * from "./assessment";
 export * from "./session";
 export * from "./dto";
 export * from "./ports";
+export * from "./dynamic-rubric";

@@ -13,6 +13,7 @@ import type { EvaluationFailure } from "./budget";
  */
 export interface EvaluateArgs {
   sessionId: string;
+  topic: { id: string; name: string; rubricData: any };
   turns: StudentTurn[];
   /** Optional external cancellation (e.g. request aborted). */
   signal?: AbortSignal;

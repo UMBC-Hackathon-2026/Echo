@@ -89,7 +89,7 @@ export interface SessionRepository {
     recordId?: string;
     idempotencyKey: string;
     results: QuestionResult[];
-    formId: "recursion.A" | "recursion.B";
+    formId: string;
     formVersion: string;
     gateVersion: string;
     rubricVersion: string;

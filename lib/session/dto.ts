@@ -108,7 +108,7 @@ export function toQuestionResultDTO(row: ResultRow, includeReview: boolean): Que
 export interface AttemptShape {
   id: string;
   attemptNo: 1 | 2;
-  formId: "recursion.A" | "recursion.B";
+  formId: string;
   formVersion: string;
   status: "in_progress" | "complete";
   results: ResultRow[];
@@ -130,6 +130,7 @@ export function toAttemptDTO(a: AttemptShape): AttemptDTO {
 
 export function toSessionDTO(input: {
   sessionId: string;
+  topic: { id: string; name: string; rubricData: any };
   phase: SessionPhase;
   revision: number;
   cycle: number;
@@ -137,8 +138,22 @@ export function toSessionDTO(input: {
   record: LearningRecord;
   attempts: AttemptShape[];
 }): SessionDTO {
+  const safeRubricData = input.topic.rubricData ? {
+    ...input.topic.rubricData,
+    questions: (input.topic.rubricData.questions || []).map((q: any) => ({
+      id: q.id,
+      pairId: q.pairId,
+      type: q.type,
+      difficulty: q.difficulty,
+      prompt: q.prompt,
+      code: q.code,
+      assumptions: q.assumptions,
+    }))
+  } : undefined;
+
   return {
     sessionId: input.sessionId,
+    topic: { id: input.topic.id, name: input.topic.name, rubricData: safeRubricData },
     phase: input.phase,
     revision: input.revision,
     cycle: input.cycle,

@@ -1,4 +1,4 @@
-import { useSession, CONCEPT_ORDER } from "@/hooks/useSession";
+import { useSession } from "@/hooks/useSession";
 import type { Outcome, ConceptId, ConceptState } from "@/lib/contracts";
 import Link from "next/link";
 
@@ -82,7 +82,8 @@ export function AssessmentPanel() {
             <div data-testid="concept-changes" className="rounded-md border border-black/10 p-3 text-sm dark:border-white/15">
               <h3 className="font-semibold">What your learner understands now</h3>
               <ul className="mt-1 flex flex-col gap-1">
-                {CONCEPT_ORDER.map((cid) => {
+                {state.topic.rubricData.concepts.map((concept: any) => {
+                  const cid = concept.id;
                   const before = concepts.conceptsBefore[cid];
                   const after = concepts.conceptsAfter[cid];
                   const changed = before !== after;
@@ -95,7 +96,7 @@ export function AssessmentPanel() {
                       data-changed={changed}
                       className="flex items-center justify-between gap-2"
                     >
-                      <span>{CONCEPT_LABEL[cid] ?? cid}</span>
+                      <span>{concept.name || cid}</span>
                       <span className="whitespace-nowrap text-xs text-zinc-600 dark:text-zinc-400">
                         {STATE_LABEL[before]} → {STATE_LABEL[after]}{changed ? " (changed)" : ""}
                       </span>

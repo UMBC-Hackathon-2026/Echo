@@ -1,3 +1,4 @@
+import { defaultTopic } from "../tests/helpers/phase2";
 /**
  * Live evaluator accuracy (Task F / Phase 3c). Runs a fixture set through the
  * REAL Gemini adapter + Phase 2 validator, N runs each. Prints per-fixture pass
@@ -135,7 +136,7 @@ async function main() {
       first = false;
       const ev = new GeminiEvaluator({ maxAttempts: Math.min(maxAttempts, maxCalls - calls) });
       const sessionId = `${fx.id}-${r}`;
-      const res = await ev.evaluate({ sessionId, turns: toTurns(sessionId, fx.turns) });
+      const res = await ev.evaluate({ sessionId, turns: toTurns(sessionId, fx.turns), topic: defaultTopic });
       calls += res.attempts;
       const sample: Sample = { id: fx.id, run: r + 1, calls: res.attempts };
       samples.push(sample);
