@@ -30,7 +30,7 @@ and the committed YAML fields in the
 
 1. Sign in to DigitalOcean and select **Create → App Platform**.
 2. Choose GitHub, authorize read access if prompted, and select
-   `aahanrembersu07/inverse-tutor`, branch `main`, repository root `/`.
+   `UMBC-Hackathon-2026/Echo`, branch `main`, repository root `/`.
 3. Use the configuration from `.do/app.yaml`. Confirm the detected component is
    a **Web Service** using the Node.js runtime, with `npm run build`, `npm start`,
    internal port `8080`, region `nyc`, and exactly one 512 MiB shared instance.

@@ -1,6 +1,6 @@
 # Echo
 
-> If you truly understand something, can you teach it well enough for someone else to use it?
+> “If you want to master something, teach it” — Richard Feynman
 
 Echo flips the traditional tutoring model: **you** are the teacher. Upload your own study material, explain the topic in your own words to a simulated learner, and watch it take a test based strictly on what you actually taught it.
 
@@ -101,8 +101,8 @@ Verified directly against `package.json` at the documented commit.
 **Prerequisites:** Node.js 20 (matches CI), and access to two PostgreSQL databases (one for development, one that the test suite is free to write into).
 
 ```sh
-git clone https://github.com/aahanrembersu07/inverse-tutor.git
-cd inverse-tutor
+git clone https://github.com/UMBC-Hackathon-2026/Echo.git
+cd Echo
 npm ci
 cp .env.example .env.local
 ```
