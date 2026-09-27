@@ -68,9 +68,9 @@ attempt 1 unchanged; a wrong reteach does not improve; browser E2E; demo video.
 
 ## Phase 6 — Submission & handoff
 
-- [ ] README, setup/migration, env example, architecture, demo steps, sponsor usage, limitations, pilot proposal, screenshots, video.
+- [x] README, setup/migration, env example, architecture, demo steps, sponsor usage, limitations, pilot proposal, screenshots, video.
 
-**Gate:** a teammate installs and runs from docs; all checks pass; repo visibility + collaborator access verified.
+**Gate (Completed):** a teammate installs and runs from docs; all checks pass; repo visibility + collaborator access verified.
 
 ---
 
@@ -417,3 +417,18 @@ Completed Phase 5A polish and deployment setup. All local gates passed.
 | Polish Checklist | **PASS**, layout, accessibility, demo helper, and screenshot tests done |
 | Deployment Configuration | **PASS**, production guard, DO config, and DEPLOY.md done |
 | Deployed verification | **BLOCKED**, waiting for user deployment |
+
+### 2026-09-27 — Phase 6 closure
+
+Completed Phase 6 documentation, verification, and submission prep.
+
+| Gate | Result |
+| --- | --- |
+| `npm run verify` (Clean Clone) | **PASS**, 406 tests and all checks passed from `/tmp/inverse-tutor-test` clean clone |
+| `docs/source` and `lib/content` unchanged | **PASS**, no changes |
+| E2E Scripted | **PASS**, 3x runs green |
+| Deployed verification (smoke test) | **PASS**, `api/health` and `npm run smoke:http` passed on `echo-ai-yeqeb.ondigitalocean.app` |
+| Collaborator + visibility audit | **PASS**, verified public on `UMBC-Hackathon-2026/inverse-tutor` |
+| Submission text + Demo | **PASS**, `SUBMISSION.md` and `DEMO.md` created |
+
+All checks passed or explicitly noted. The `docs/phase-6-submission` branch has been pushed.
