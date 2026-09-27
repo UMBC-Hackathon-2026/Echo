@@ -1,3 +1,4 @@
+import type { TopicRubric } from "@/lib/contracts/topic";
 import "server-only";
 import { LearningRecord } from "@/lib/contracts";
 export const RUBRIC_VERSION = "1.0.2";
@@ -13,7 +14,7 @@ function freeze<T>(value: T): T {
 }
 
 /** IDs come from the caller; no database, clock, randomness, or provider side effects. */
-export function createInitialRecord(input: { id: string; sessionId: string; conceptIds: string[]; topicRubricData: any }) {
+export function createInitialRecord(input: { id: string; sessionId: string; conceptIds: string[]; topicRubricData: TopicRubric }) {
   const concepts = LearningRecord.shape.concepts.parse(Object.fromEntries(input.conceptIds.map((id) => [id, {
     state: "not_taught", evidence: [], conflicts: [], uncertain: false, reason: "not assessed",
   }])));
@@ -31,7 +32,7 @@ export function createLearningRecord(input: {
   cycle: number;
   previous: LearningRecord;
   evaluation: ValidatedEvaluation;
-  topicRubricData: any;
+  topicRubricData: TopicRubric;
 }) {
   const { previous, evaluation } = input;
   if (input.id === previous.id || evaluation.sessionId !== previous.session_id

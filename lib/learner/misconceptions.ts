@@ -1,3 +1,4 @@
+import type { TopicRubric } from "@/lib/contracts/topic";
 import "server-only";
 import type { LearningRecord, MisconceptionEntry, Span } from "@/lib/contracts";
 import { turnNumber } from "@/lib/evaluator/provenance";
@@ -16,7 +17,7 @@ const latestTurn = (spans: Span[]) => Math.max(-1, ...spans.map((s) => turnNumbe
 
 /** Returns event payloads for Phase 3 to persist atomically alongside the new snapshot. */
 export function updateMisconceptions(
-  topicRubricData: any,
+  topicRubricData: TopicRubric,
   previous: LearningRecord["misconceptions"],
   concepts: LearningRecord["concepts"],
   reports: readonly VerifiedMisconceptionReport[],
@@ -68,7 +69,7 @@ export function updateMisconceptions(
 
 
   for (const report of chronological) {
-    if (!topicRubricData?.misconceptions?.some((m: any) => m.id === report.id)) throw new Error("Unknown misconception id");
+    if (!topicRubricData?.misconceptions?.some((m) => m.id === report.id)) throw new Error("Unknown misconception id");
     if (!report.evidence.length) continue;
     const key = studentMisconceptionKey(report.id);
     const before = misconceptions[key];

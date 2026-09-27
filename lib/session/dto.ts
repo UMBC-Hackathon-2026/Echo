@@ -1,10 +1,11 @@
+import type { AssessmentQuestion, TeachingTopic } from "@/lib/contracts/topic";
+import type { PublicQuestion } from "@/lib/contracts";
 import "server-only";
 import type {
   AttemptDTO,
   ConceptId,
   LearningRecord,
   MessageDTO,
-  Question,
   QuestionResult,
   QuestionResultDTO,
   RecordDTO,
@@ -69,7 +70,7 @@ export function toRecordDTO(record: LearningRecord): RecordDTO {
 /** A persisted result plus its frozen question snapshot. */
 export interface ResultRow {
   result: QuestionResult & { id?: string };
-  question: Question;
+  question: AssessmentQuestion;
 }
 
 export function toQuestionResultDTO(row: ResultRow, includeReview: boolean): QuestionResultDTO {
@@ -86,20 +87,13 @@ export function toQuestionResultDTO(row: ResultRow, includeReview: boolean): Que
     answerText: row.result.answerText,
     blocking: { concepts: [...row.result.blocking.concepts], misconceptions: [...row.result.blocking.misconceptions] },
     nextStep: row.result.nextStep,
-    question: {
-      id: q.id,
-      pairId: q.pairId,
-      type: q.type,
-      difficulty: q.difficulty,
-      prompt: q.prompt,
-      code: q.code,
-      assumptions: q.assumptions,
-    },
+    question: toPublicQuestion(q),
   };
   if (includeReview) {
     dto.review = {
-      answerKey: q.answerKey,
-      criteria: q.criteria.map((c) => ({ id: c.id, text: c.text, points: c.points, requires: [...c.requires] })),
+      answerKey: typeof q.answerKey === "string" ? q.answerKey : q.answerKey.expectedAnswer,
+      criteria: "criteria" in q ? q.criteria.map((c) => ({ id: c.id, text: c.text, points: c.points, requires: [...c.requires] })) : [],
+      ...(typeof q.answerKey !== "string" ? { guidance: q.answerKey.correctCriteria } : {}),
     };
   }
   return dto;
@@ -130,7 +124,7 @@ export function toAttemptDTO(a: AttemptShape): AttemptDTO {
 
 export function toSessionDTO(input: {
   sessionId: string;
-  topic: { id: string; name: string; rubricData: any };
+  topic: TeachingTopic;
   phase: SessionPhase;
   revision: number;
   cycle: number;
@@ -138,18 +132,11 @@ export function toSessionDTO(input: {
   record: LearningRecord;
   attempts: AttemptShape[];
 }): SessionDTO {
-  const safeRubricData = input.topic.rubricData ? {
-    ...input.topic.rubricData,
-    questions: (input.topic.rubricData.questions || []).map((q: any) => ({
-      id: q.id,
-      pairId: q.pairId,
-      type: q.type,
-      difficulty: q.difficulty,
-      prompt: q.prompt,
-      code: q.code,
-      assumptions: q.assumptions,
-    }))
-  } : undefined;
+  const safeRubricData = {
+    concepts: input.topic.rubricData.concepts.map(({ id, name }) => ({ id, name })),
+    misconceptions: input.topic.rubricData.misconceptions.map(({ id, name }) => ({ id, name })),
+    questions: input.topic.rubricData.questions.map(toPublicQuestion),
+  };
 
   return {
     sessionId: input.sessionId,
@@ -161,4 +148,9 @@ export function toSessionDTO(input: {
     record: toRecordDTO(input.record),
     attempts: input.attempts.map(toAttemptDTO),
   };
+}
+
+function toPublicQuestion(q: AssessmentQuestion): PublicQuestion {
+  if ("prompt" in q) return { id: q.id, pairId: q.pairId, type: q.type, difficulty: q.difficulty, prompt: q.prompt, code: q.code, assumptions: q.assumptions };
+  return { id: q.id, pairId: q.pairId, type: q.type, difficulty: 0, prompt: q.text, code: "", assumptions: "" };
 }

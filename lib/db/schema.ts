@@ -1,3 +1,4 @@
+import type { TopicRubric } from "@/lib/contracts/topic";
 // Table metadata only (no secrets, no connection). The pool that actually
 // connects lives in client.ts behind `import 'server-only'`.
 import { sql } from "drizzle-orm";
@@ -50,7 +51,7 @@ export const attemptStatus = pgEnum("attempt_status", ["in_progress", "complete"
 export const topics = pgTable("topics", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
-  rubricData: jsonb("rubric_data"),
+  rubricData: jsonb("rubric_data").$type<TopicRubric>(),
   status: topicStatus("status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

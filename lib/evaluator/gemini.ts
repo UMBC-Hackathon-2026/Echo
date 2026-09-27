@@ -58,7 +58,7 @@ export class GeminiEvaluator implements Evaluator {
           config: {
             systemInstruction,
             responseMimeType: "application/json",
-            responseSchema: RESPONSE_SCHEMA as any,
+            responseJsonSchema: RESPONSE_SCHEMA,
             temperature: 0,
             abortSignal: ac.signal,
           },

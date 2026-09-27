@@ -1,9 +1,11 @@
+import { EvaluatorOutput } from "@/lib/contracts";
+import type { TeachingTopic } from "@/lib/contracts/topic";
 import "server-only";
 import type { ConceptId, ConceptRecordEntry, Span } from "@/lib/contracts";
 
 import { indexStudentTurns, resolveEvidenceList, turnNumber, type StudentTurn } from "./provenance";
 
-export const VALIDATOR_VERSION = "1.0.0";
+export const VALIDATOR_VERSION = "1.1.0";
 
 export interface VerifiedMisconceptionReport {
   id: string;
@@ -21,21 +23,11 @@ export interface ValidatedEvaluation {
 /** Throws on malformed model output; callers must mark evaluation failed, never apply part. */
 export function validateEvaluation(
   raw: unknown,
-  input: { sessionId: string; turns: readonly StudentTurn[]; topic: { id: string; name: string; rubricData: any } },
+  input: { sessionId: string; turns: readonly StudentTurn[]; topic: TeachingTopic },
 ): ValidatedEvaluation {
-  // We skip EvaluatorOutput.parse and ValidatedConceptEntries.parse 
-  // because the schema is now dynamic. We do manual structural validation.
-  const output = raw as any;
-  if (!output || typeof output !== "object" || !Array.isArray(output.concepts) || !Array.isArray(output.misconception_reports)) {
-    throw new Error("Invalid output shape");
-  }
+  const output = EvaluatorOutput.parse(raw);
 
-  const allowedKeys = new Set(["concepts", "misconception_reports"]);
-  for (const k of Object.keys(output)) {
-    if (!allowedKeys.has(k)) throw new Error("Extra key: " + k);
-  }
-
-  const knownConceptIds = new Set(input.topic.rubricData.concepts.map((c: any) => c.id));
+  const knownConceptIds = new Set(input.topic.rubricData.concepts.map((c) => c.id));
   const seenConcepts = new Set();
   for (const c of output.concepts) {
     if (seenConcepts.has(c.id)) throw new Error("Duplicate concept");
@@ -50,17 +42,17 @@ export function validateEvaluation(
     }
   }
 
-  const knownMisconceptions = new Set(input.topic.rubricData.misconceptions.map((m: any) => m.id));
-  if (output.misconception_reports.some((r: any) => !knownMisconceptions.has(r.id))) {
+  const knownMisconceptions = new Set(input.topic.rubricData.misconceptions.map((m) => m.id));
+  if (output.misconception_reports.some((r) => !knownMisconceptions.has(r.id))) {
     throw new Error("Unknown misconception id");
   }
   
-  const conceptIds = input.topic.rubricData.concepts.map((c: any) => c.id);
+  const conceptIds = input.topic.rubricData.concepts.map((c) => c.id);
   const turns = indexStudentTurns(input.sessionId, input.turns);
   
   const entries = output.concepts;
   const concepts = Object.fromEntries(conceptIds.map((id: string) => {
-    const proposed = entries.find((c: any) => c.id === id);
+    const proposed = entries.find((c) => c.id === id);
     if (!proposed) return [id, { state: "not_taught", evidence: [], conflicts: [], uncertain: false, reason: "not assessed" }];
     const evidence = resolveEvidenceList(proposed.evidence || [], turns);
     const conflicts = resolveEvidenceList(proposed.conflicts || [], turns);
@@ -81,7 +73,7 @@ export function validateEvaluation(
     return [id, { state, evidence, conflicts, uncertain, reason }];
   })) as Record<ConceptId, ConceptRecordEntry>;
 
-  const reports = output.misconception_reports.flatMap((report: any) => {
+  const reports = output.misconception_reports.flatMap((report) => {
     const evidence = resolveEvidenceList(report.evidence || [], turns);
     return evidence.length ? [{ ...report, evidence }] : [];
   });

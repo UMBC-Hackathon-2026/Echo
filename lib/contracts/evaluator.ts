@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ConceptId, ConceptState } from "./concepts";
+import { ConceptState } from "./concepts";
 
 /**
  * Evaluator (Gemini) output contract. Copied from ARCHITECTURE_REVISED §2.
@@ -29,7 +29,7 @@ export const EvaluatorOutput = z
           })
           .strict(),
       )
-      .max(10),
+      .max(20),
     misconception_reports: z
       .array(
         z
@@ -40,7 +40,7 @@ export const EvaluatorOutput = z
           })
           .strict(),
       )
-      .max(5),
+      .max(40),
   })
   .strict();
 export type EvaluatorOutput = z.infer<typeof EvaluatorOutput>;

@@ -16,7 +16,7 @@ function report(stance: "asserted" | "retracted", number: number, overrideQuote?
 
 describe("seeded and student misconception lifecycle", () => {
   it("starts v0 with five untaught concepts and an unattributed active seed", () => {
-    const { record, events } = createInitialRecord({ id: "r0", sessionId: "session", conceptIds: defaultTopic.rubricData.concepts.map((c: any) => c.id), topicRubricData: defaultTopic.rubricData });
+    const { record, events } = createInitialRecord({ id: "r0", sessionId: "session", conceptIds: defaultTopic.rubricData.concepts.map((c) => c.id), topicRubricData: defaultTopic.rubricData });
     expect(LearningRecord.safeParse(record).success).toBe(true);
     expect(Object.values(record.concepts).every((c) => c.state === "not_taught")).toBe(true);
     expect(record.misconceptions[belief]).toEqual({ origin: "seeded", status: "active", evidence: [], changed_in_version: 0 });
@@ -25,7 +25,7 @@ describe("seeded and student misconception lifecycle", () => {
   });
 
   it("resolves and reactivates the seed exactly according to the source rule", () => {
-    const previous = createInitialRecord({ id: "r0", sessionId: "session", conceptIds: defaultTopic.rubricData.concepts.map((c: any) => c.id), topicRubricData: defaultTopic.rubricData }).record;
+    const previous = createInitialRecord({ id: "r0", sessionId: "session", conceptIds: defaultTopic.rubricData.concepts.map((c) => c.id), topicRubricData: defaultTopic.rubricData }).record;
     const concepts = recordWith("not_taught").concepts;
     concepts.base_case.state = "demonstrated";
     expect(updateMisconceptions(defaultTopic.rubricData, previous.misconceptions, concepts, [], 1).events).toEqual([]);
@@ -84,11 +84,11 @@ describe("seeded and student misconception lifecycle", () => {
 
 describe("immutable record revisions and wrong reteaching", () => {
   it("recomputes snapshots, preserves history, and leaves a prior assessment unchanged after wrong reteaching", () => {
-    const initial = createInitialRecord({ id: "r0", sessionId: "session", conceptIds: defaultTopic.rubricData.concepts.map((c: any) => c.id), topicRubricData: defaultTopic.rubricData }).record;
+    const initial = createInitialRecord({ id: "r0", sessionId: "session", conceptIds: defaultTopic.rubricData.concepts.map((c) => c.id), topicRubricData: defaultTopic.rubricData }).record;
     const text = "It stops at zero.";
     const raw = proposal("base_case", text);
     raw.concepts.push({ ...proposal("progress_toward_base_case", text).concepts[0], state: "partially_taught" });
-    raw.misconception_reports = [report("retracted", 1, text)];
+    raw.misconception_reports = [report("retracted", 1, text)].map(({ id, stance, evidence }) => ({ id, stance, evidence: evidence.map(({ turn_id, quote }) => ({ turn_id, quote })) }));
     const evaluation = validateEvaluation(raw, { sessionId: "session", topic: defaultTopic, turns: [turn("t1", text)] });
     const first = createLearningRecord({ id: "r1", cycle: 1, previous: initial, evaluation, topicRubricData: defaultTopic.rubricData });
     const question = FORMS[0].questions[0];
@@ -96,7 +96,7 @@ describe("immutable record revisions and wrong reteaching", () => {
     const saved = JSON.stringify(first);
     raw.concepts[0].conflicts = [{ turn_id: "t2", quote: "Actually it never stops" }];
     raw.concepts[0].resolution = "unresolved";
-    raw.misconception_reports = [report("retracted", 1, text), report("asserted", 2, "Actually it never stops")];
+    raw.misconception_reports = [report("retracted", 1, text), report("asserted", 2, "Actually it never stops")].map(({ id, stance, evidence }) => ({ id, stance, evidence: evidence.map(({ turn_id, quote }) => ({ turn_id, quote })) }));
     const later = validateEvaluation(raw, { sessionId: "session", topic: defaultTopic, turns: [turn("t1", text), turn("t2", "Actually it never stops")] });
     const second = createLearningRecord({ id: "r2", cycle: 2, previous: first.record, evaluation: later, topicRubricData: defaultTopic.rubricData });
     expect(second.record).toMatchObject({ version: 2, cycle: 2, based_on_turn_ids: ["t1", "t2"] });
@@ -110,7 +110,7 @@ describe("immutable record revisions and wrong reteaching", () => {
   });
 
   it("rejects cross-session snapshots, repeated record IDs, backward cycles, and omitted earlier turns", () => {
-    const initial = createInitialRecord({ id: "r0", sessionId: "session", conceptIds: defaultTopic.rubricData.concepts.map((c: any) => c.id), topicRubricData: defaultTopic.rubricData }).record;
+    const initial = createInitialRecord({ id: "r0", sessionId: "session", conceptIds: defaultTopic.rubricData.concepts.map((c) => c.id), topicRubricData: defaultTopic.rubricData }).record;
     const evaluation = validateEvaluation(proposal(), { sessionId: "session", topic: defaultTopic, turns: [turn("t1", "It stops at zero.")] });
     expect(() => createLearningRecord({ id: "r0", cycle: 1, previous: initial, evaluation, topicRubricData: defaultTopic.rubricData })).toThrow();
     expect(() => createLearningRecord({ id: "r1", cycle: 1, previous: initial, evaluation: { ...evaluation, sessionId: "other" }, topicRubricData: defaultTopic.rubricData })).toThrow();

@@ -1,3 +1,4 @@
+import type { DynamicQuestion } from "./dynamic-rubric";
 import type { ConceptId, ConceptState } from "./concepts";
 import type { Span } from "./record";
 import type { Outcome, QuestionType } from "./assessment";
@@ -16,7 +17,7 @@ import type { Outcome, QuestionType } from "./assessment";
 export interface PublicQuestion {
   id: string;
   pairId: string;
-  type: QuestionType;
+  type: QuestionType | DynamicQuestion["type"];
   difficulty: number;
   prompt: string;
   code: string;
@@ -26,6 +27,8 @@ export interface PublicQuestion {
 /** Review-only material, present ONLY after the attempt is completed. */
 export interface QuestionReview {
   answerKey: string;
+  /** Generated grading guidance has no per-criterion point allocation. */
+  guidance?: string[];
   criteria: Array<{ id: string; text: string; points: number; requires: ConceptId[] }>;
 }
 
@@ -95,7 +98,7 @@ export interface RecordDTO {
 
 export interface ComparisonRowDTO {
   pairId: string;
-  type: QuestionType;
+  type: QuestionType | DynamicQuestion["type"];
   before: { outcome: Outcome; points: number; maxPoints: number; answerText: string };
   after: { outcome: Outcome; points: number; maxPoints: number; answerText: string };
   conceptsBefore: Record<ConceptId, ConceptState>;
@@ -107,7 +110,7 @@ export interface SessionDTO {
   topic: {
     id: string;
     name: string;
-    rubricData: any; // DynamicRubric goes here
+    rubricData: { concepts: Array<{ id: string; name?: string }>; misconceptions: Array<{ id: string; name?: string }>; questions: PublicQuestion[] };
   };
   phase:
     | "teaching"
