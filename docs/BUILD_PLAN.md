@@ -310,6 +310,24 @@ comes from `.env.local`. Paid-tier status must be verified for that key's owning
 project before continuing. Previous connectivity success did not verify billing.
 See PHASE3.md for the exact quota identifier and continuation guidance.
 
+### 2026-09-27 — Phase 3 closeout completion
+
+Completed the remaining tasks for Phase 3 closeout:
+
+| Gate | Result |
+| --- | --- |
+| verify + check:env | PASS: 394 tests and all build/content/secrets/bundle checks |
+| docs/source + lib/content unchanged | PASS |
+| Live schema check | PASS: 3 calls completed, all validated successfully |
+| Tuning (p1 vs p2) | Evaluated p1 (88.6% overall, 2 under-credits). Refined `smaller_subproblem` guidance to create p2. Evaluated p2 (100% overall, 0 over/under-credits). **Chosen prompt: p2** |
+| Held-out ×3 | **MET**. 100% (54/54), 0 over-credits (base_case: 0), 0 under-credits. Demo targets successfully met. |
+| smoke:service | PASS |
+| smoke:http | PASS |
+| Browser checklist | Left for user manual verification |
+| Total Gemini calls | **154 / 300** used this session (well under the 300 limit) |
+
+Evaluator demo readiness is **established**. The chosen prompt (`p2`) passed all tuning and held-out demo targets successfully. Phase 3 closeout is complete!
+
 
 ### 2026-09-26 — Closeout recheck on latest teammate branch
 
