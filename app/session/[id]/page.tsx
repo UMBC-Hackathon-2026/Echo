@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import { SessionProvider, useSession } from "@/hooks/useSession";
 import { TeachPanel } from "@/components/TeachPanel";
@@ -67,7 +68,10 @@ function SessionTitle() {
         <p className="eyebrow">{state.hydrated ? state.topic.name : "Loading session"}</p>
         {state.hydrated && <span className="phase-chip">{PHASE_LABELS[state.phase] ?? "Session"} · Cycle {state.cycle}</span>}
       </div>
-      <h1>The Inverse Tutor</h1>
+      <div className="flex items-center gap-2">
+        <Image src="/echo-logo.png" alt="" width={32} height={32} priority className="echo-mark" />
+        <h1>Echo</h1>
+      </div>
       <p className="session-subtitle">Teach it. Test it. Trace what changed.</p>
     </div>
   );

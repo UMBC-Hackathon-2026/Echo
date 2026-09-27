@@ -1,4 +1,4 @@
-# Inverse Tutor Demo Script
+# Echo Demo Script
 
 **Duration:** 3 to 5 minutes
 
@@ -20,7 +20,7 @@
 
 ## 1. Introduction (30s)
 
-**Speaker:** "Have you ever thought you understood a concept perfectly, only to realize you couldn't explain it to someone else? The Inverse Tutor flips the standard model. Instead of an AI tutoring the student, the student tutors an AI. Let's see how well I can teach recursion."
+**Speaker:** "Have you ever thought you understood a concept perfectly, only to realize you couldn't explain it to someone else? Echo flips the standard model. Instead of an AI tutoring the student, the student tutors an AI. Let's see how well I can teach recursion."
 
 ## 2. The Learner's Opening Line (15s)
 

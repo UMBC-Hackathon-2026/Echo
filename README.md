@@ -1,10 +1,10 @@
-# The Inverse Tutor
+# Echo
 
 > If you truly understand something, can you teach it well enough for someone else to use it?
 
 ## How it works
 
-The Inverse Tutor flips the traditional model: students play the role of the teacher. You explain recursion to a simulated learner. The system then evaluates the explanation through a loop:
+Echo flips the traditional model: students play the role of the teacher. You explain recursion to a simulated learner. The system then evaluates the explanation through a loop:
 1. **Teach:** Submit an explanation.
 2. **Assess:** The learner attempts to answer questions based strictly on your explanation.
 3. **Inspect:** Trace mistakes directly to missed concepts and your original words.
