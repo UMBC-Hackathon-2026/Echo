@@ -14,6 +14,11 @@ export interface ApiError {
   retryAfterSeconds?: number;
 }
 
+export interface HealthDTO {
+  ok: boolean;
+  db: "up" | "down";
+}
+
 function isApiError(x: unknown): x is ApiError {
   return typeof x === "object"
     && x !== null
@@ -32,7 +37,7 @@ export function apiErrorMessage(error: ApiError, fallback = "The request could n
   if (error.status === 409) return "This session changed. Refresh the latest state and try again.";
   if (error.status === 422) {
     if (error.error === "idempotency_mismatch") return "This action conflicts with an earlier request. Please try the action again.";
-    return error.detail ?? "The request could not be processed.";
+    return error.detail ?? serverMessage ?? "The request could not be processed.";
   }
   if (error.status === 429) {
     if (serverMessage) {
@@ -44,11 +49,19 @@ export function apiErrorMessage(error: ApiError, fallback = "The request could n
       ? `Too many requests. Try again in ${error.retryAfterSeconds} seconds.`
       : "Too many requests. Please wait before trying again.";
   }
-  return fallback;
+  return serverMessage ?? fallback;
 }
 
 export function newIdempotencyKey(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi) throw new Error("Secure UUID generation is unavailable");
+  if (cryptoApi.randomUUID) return cryptoApi.randomUUID();
+
+  const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
 }
 
 function retryAfterSeconds(response: Response): number | undefined {
@@ -91,7 +104,12 @@ async function jsonCall<T>(path: string, method: string, body?: unknown, idempot
 }
 
 export const api = {
+  createTopic: async (formData: FormData): Promise<{ topicId: string }> => {
+    const res = await checkedFetch("/api/topics/create", { method: "POST", body: formData });
+    return res.json() as Promise<{ topicId: string }>;
+  },
   createSession: (args?: { topicId?: string }) => jsonCall<SessionDTO>("/api/sessions", "POST", args || {}),
+  getHealth: () => jsonCall<HealthDTO>("/api/health", "GET"),
   getSession: (id: string) => jsonCall<SessionDTO>(`/api/sessions/${id}`, "GET"),
   submitTeaching: (id: string, args: { text: string; inputMode: MessageDTO["inputMode"]; expectedRevision: number; idempotencyKey: string }) =>
     jsonCall<SessionDTO>(

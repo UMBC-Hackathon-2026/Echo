@@ -8,6 +8,8 @@ import { takeToken } from "@/lib/http/rate-limit";
 import { ElevenLabsClient, ElevenLabsError } from "@elevenlabs/elevenlabs-js";
 import { timingSafeEqual, createHash } from "node:crypto";
 
+export const runtime = "nodejs";
+
 const RequestBody = z.object({
   source: z.enum(["learner_message", "question_result"]),
   id: z.string().uuid()
