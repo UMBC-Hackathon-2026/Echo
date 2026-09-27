@@ -17,7 +17,11 @@ export async function teach(page: Page, text: string): Promise<void> {
   await expect(send).toBeEnabled();
   const resp = page.waitForResponse((r) => r.url().includes('/messages') && r.request().method() === 'POST');
   await send.click();
-  await resp;
+  const response = await resp;
+  expect(response.ok(), 'teaching request must succeed').toBe(true);
+  const dto = await response.json();
+  const latestStudent = dto.messages.filter((m: { role: string }) => m.role === 'student').at(-1);
+  expect(latestStudent?.evalStatus, 'teaching evaluation must succeed').toBe('evaluated');
   // Back to a teachable, non-pending state (the Assess button reappears).
   await page.waitForSelector('button:has-text("Assess my learner")');
 }

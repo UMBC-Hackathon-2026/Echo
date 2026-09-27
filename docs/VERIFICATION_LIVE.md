@@ -1,5 +1,19 @@
 # Live Verification — 2026-09-26
 
+## Latest follow-up: Phase 5A gate repair
+
+Current results are in [PHASE5.md](PHASE5.md), verified at `7e43e6a` on main
+`c88c140` plus verification-script fixes, using the user's selected
+`gemini-3.1-flash-lite` and frozen p2/rubric 1.0.2. **34/34 scored held-out outputs
+passed, coverage 34/54**; both demo fixtures passed 3/3; zero observed over-credit
+or under-credit. Both live E2E flows and both live smoke tests passed. Total
+calls: **40**, the session allowance. Twenty outputs remain untested, so the
+overall demo target is **NOT MET (unverified)**. Earlier 54/54 and 154-call claims
+do not stand. No evaluator or fixture retuning occurred.
+
+The remainder preserves the older `96eb7c5` / 3.8-flash report as historical
+evidence; its results must not be combined with this follow-up.
+
 ## Scope
 
 | Field | Value |

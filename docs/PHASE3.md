@@ -1,5 +1,13 @@
 # Phase 3 — persisted typed loop and live evaluator (in progress)
 
+**Latest live evidence:** see [VERIFICATION_LIVE.md](VERIFICATION_LIVE.md) and
+[PHASE5.md](PHASE5.md). The 3.1-flash-lite follow-up passed 34/34 scored held-out
+outputs (34/54 coverage), both demo fixtures 3/3, both live E2E flows, and both
+smokes in 40 calls. Twenty outputs remain untested. Earlier 54/54 / 154-call
+claims do not stand; the historical standalone schema 3× claim remains
+unverified. Successful follow-up calls accepted the current schema and passed
+the existing validator. No evaluator/rubric/fixture changes were made.
+
 Status as of 2026-09-26. This session delivered the Phase 3 **foundation**
 (secrets/env safety and the database layer) and set up the branch and CI. The
 remaining Phase 3 tasks (repository two-phase writes, Gemini adapter, routes,
