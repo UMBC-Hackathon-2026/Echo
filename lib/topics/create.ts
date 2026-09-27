@@ -1,4 +1,5 @@
 import "server-only";
+import { DocumentContentError } from "./errors";
 import { DynamicRubricSchema, type DynamicRubric } from "@/lib/contracts/dynamic-rubric";
 import { EXTRACTION_FAILURE, MAX_FILES, MAX_FILE_SIZE_BYTES, pdfProblem } from "./upload-policy";
 
@@ -43,18 +44,31 @@ export async function createTopic(request: Request, deps: TopicCreationDependenc
     files.push(entry);
   }
   let topicId: string | undefined;
+  let stage = "create";
   try {
     topicId = await deps.create(name.trim());
+    stage = "processing";
     await deps.processing(topicId);
+    stage = "extract";
     const raw = await deps.extract(name.trim(), files);
     // The only path to ready passes this boundary. Never persist raw model output.
+    stage = "validate";
     const rubric = DynamicRubricSchema.parse(raw);
+    stage = "save";
     await deps.ready(topicId, { ...rubric, topicName: name.trim() });
     return json({ topicId });
-  } catch {
+  } catch (error) {
+    // Log only bounded operational metadata, never provider messages, PDFs or keys.
+    const providerStatus = error && typeof error === "object" && "status" in error
+      && typeof error.status === "number" && Number.isInteger(error.status)
+      && error.status >= 400 && error.status <= 599 ? error.status : undefined;
+    console.error("topic_creation_failed", { stage, code: error instanceof DocumentContentError ? error.code : "operational_failure", providerStatus });
     if (topicId) {
       try { await deps.failed(topicId); }
       catch { console.error("topic_failed_status_write_failed"); }
+    }
+    if (stage === "extract" && error instanceof DocumentContentError) {
+      return json({ error: error.message }, 422);
     }
     return json({ error: EXTRACTION_FAILURE }, 502);
   }
