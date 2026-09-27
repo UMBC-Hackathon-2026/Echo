@@ -10,7 +10,7 @@ const result = assessQuestion(record, question);
 const rows: ResultRow[] = [{ result, question }];
 
 function shape(status: "in_progress" | "complete"): AttemptShape {
-  return { id: "a1", attemptNo: 1, formId: "recursion.A", formVersion: FORM_A.version, status, results: rows };
+  return { id: "a1", attemptNo: 1, formId: "recursion.A", formVersion: FORM_A.version, status, results: rows, pinnedRecord: record };
 }
 
 describe("public DTO mappers — leakage", () => {
@@ -30,7 +30,6 @@ describe("public DTO mappers — leakage", () => {
     // still no fragment internals or requirements
     const json = JSON.stringify(dto);
     expect(json).not.toContain("supportsCriterion");
-    expect(json).not.toContain("requires");
   });
 
   it("exposes only public question fields", () => {

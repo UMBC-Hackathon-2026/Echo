@@ -73,9 +73,9 @@ export const RECURSION_RUBRIC: Record<ConceptId, RubricConcept> = {
       },
       {
         id: "smaller_subproblem.demonstrated",
-        explanation: "For an integer n above one, the next call receives Math.floor(n / 2).",
+        explanation: "Each call works on a smaller n.",
         expectedState: "demonstrated",
-        reason: "Specifies a concrete reduction of the input on each call.",
+        reason: "Names the input and its direction of change.",
       },
     ],
   },

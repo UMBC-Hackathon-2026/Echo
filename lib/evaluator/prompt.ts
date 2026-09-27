@@ -12,7 +12,7 @@ import { SEEDED_MISCONCEPTIONS } from "@/lib/content/recursion/misconceptions";
  *
  * Bump PROMPT_VERSION on any wording change; record tuning results in PHASE3.md.
  */
-export const PROMPT_VERSION = "p1";
+export const PROMPT_VERSION = "p2";
 
 export function buildSystemInstruction(): string {
   const concepts = PROBE_ORDER.map((id) => {
@@ -81,9 +81,9 @@ const evidenceRef = {
  * A parity test (tests/evaluator/schema-parity.test.ts) fails if they drift.
  * The Phase 2 validator is still the source of truth; this only guides the model.
  *
- * NOTE: enriched from the earlier permissive version (Phase 3b) with
- * additionalProperties/limits. The permissive version was live-verified; this
- * enriched one needs a live re-check when the Gemini quota resets.
+ * Provider exception: maxItems is omitted after the enriched schema returned
+ * HTTP 400 live; removing this keyword was accepted. All item caps remain in
+ * Zod and the validator. Parity tests explicitly cover this divergence.
  */
 export const RESPONSE_SCHEMA = {
   type: "object",
@@ -91,15 +91,14 @@ export const RESPONSE_SCHEMA = {
   properties: {
     concepts: {
       type: "array",
-      maxItems: 10,
       items: {
         type: "object",
         additionalProperties: false,
         properties: {
           id: { type: "string", enum: [...CONCEPT_IDS] },
           state: { type: "string", enum: [...ConceptState.options] },
-          evidence: { type: "array", maxItems: 3, items: evidenceRef },
-          conflicts: { type: "array", maxItems: 3, items: evidenceRef },
+          evidence: { type: "array", items: evidenceRef },
+          conflicts: { type: "array", items: evidenceRef },
           resolution: { type: "string", enum: ["none", "later_correction", "unresolved"] },
           reason: { type: "string", maxLength: 240 },
         },
@@ -108,14 +107,13 @@ export const RESPONSE_SCHEMA = {
     },
     misconception_reports: {
       type: "array",
-      maxItems: 5,
       items: {
         type: "object",
         additionalProperties: false,
         properties: {
           id: { type: "string" },
           stance: { type: "string", enum: ["asserted", "retracted"] },
-          evidence: { type: "array", minItems: 1, maxItems: 3, items: evidenceRef },
+          evidence: { type: "array", minItems: 1, items: evidenceRef },
         },
         required: ["id", "stance", "evidence"],
       },

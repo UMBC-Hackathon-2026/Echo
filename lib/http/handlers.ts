@@ -64,6 +64,7 @@ const MessagesBody = z
 const RetryBody = z.object({ expectedRevision: z.number().int() }).strict();
 const AttemptsBody = z.object({ expectedRevision: z.number().int(), recordId: z.string().optional() }).strict();
 const CompleteBody = z.object({ sessionId: z.string(), expectedRevision: z.number().int() }).strict();
+const ReteachBody = z.object({ questionId: z.string(), nextStepHint: z.string(), expectedRevision: z.number().int() }).strict();
 
 export async function handlePostSessions(request: Request, service: SessionService): Promise<Response> {
   const body = await parseBody(request, SessionsBody);
@@ -134,6 +135,28 @@ export async function handlePostComplete(request: Request, attemptId: string, se
   const ownerToken = readOwnerToken(request, body.sessionId) ?? "";
   try {
     return json(await service.completeAttempt({ sessionId: body.sessionId, ownerToken, attemptId, expectedRevision: body.expectedRevision, idempotencyKey: key }));
+  } catch (e) {
+    return mapError(e);
+  }
+}
+
+export async function handlePostReteach(request: Request, sessionId: string, service: SessionService): Promise<Response> {
+  const key = requireIdempotencyKey(request);
+  if (key instanceof Response) return key;
+  const body = await parseBody(request, ReteachBody);
+  if (body instanceof Response) return body;
+  const ownerToken = readOwnerToken(request, sessionId) ?? "";
+  try {
+    return json(await service.beginReteach({ sessionId, ownerToken, questionId: body.questionId, nextStepHint: body.nextStepHint, expectedRevision: body.expectedRevision, idempotencyKey: key }));
+  } catch (e) {
+    return mapError(e);
+  }
+}
+
+export async function handleGetComparison(request: Request, sessionId: string, service: SessionService): Promise<Response> {
+  const ownerToken = readOwnerToken(request, sessionId) ?? "";
+  try {
+    return json(await service.getComparison({ sessionId, ownerToken }));
   } catch (e) {
     return mapError(e);
   }

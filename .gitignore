@@ -43,3 +43,4 @@ next-env.d.ts
 
 # Live evaluator reports (may contain fixture data, never keys)
 reports/
+ARCHITECTURE.txt

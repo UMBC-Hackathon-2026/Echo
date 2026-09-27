@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useSession } from "@/hooks/useSession";
-import type { Span } from "@/lib/contracts";
+import type { Span, ConceptId } from "@/lib/contracts";
 
 const EVAL_LABEL: Record<string, string> = {
   pending: "Evaluating…",
@@ -26,12 +26,34 @@ function highlight(content: string, spans: Span[]): ReactNode {
 export function TeachPanel() {
   const { state, actions } = useSession();
   const [text, setText] = useState("");
-  const sel = state.selectedConceptId;
+  const { record, selectedConceptId, selectedQuestionId, attempts, activeAttemptId } = state;
   const anyPending = !!state.pending.teach || state.messages.some((m) => m.role === "student" && m.evalStatus === "pending");
-  const canSend = !anyPending && text.trim().length > 0 && state.phase === "teaching";
+  const canSend = !anyPending && text.trim().length > 0 && (state.phase === "teaching" || state.phase === "reteaching");
 
-  const spansForTurn = (turnNo: number): Span[] =>
-    sel ? state.record.concepts[sel].evidence.filter((sp) => sp.turn_id === `t${turnNo}`) : [];
+  const activeAttempt = attempts.find((a) => a.id === activeAttemptId);
+  const selectedResult = activeAttempt?.results.find((r) => r.questionId === selectedQuestionId);
+  const blockingConcepts = selectedResult?.blocking.concepts ?? [];
+  const blockingMisconceptions = selectedResult?.blocking.misconceptions ?? [];
+
+  const spansForTurn = (turnNo: number): Span[] => {
+    const spans: Span[] = [];
+    if (selectedConceptId) {
+      spans.push(...record.concepts[selectedConceptId].evidence.filter((sp) => sp.turn_id === `t${turnNo}`));
+    }
+    if (selectedQuestionId && activeAttempt) {
+      const pinned = activeAttempt.pinnedRecord;
+      if (pinned) {
+        for (const cid of blockingConcepts) {
+          spans.push(...pinned.concepts[cid as ConceptId].evidence.filter((sp) => sp.turn_id === `t${turnNo}`));
+        }
+        for (const mid of blockingMisconceptions) {
+          const m = pinned.misconceptions[mid];
+          if (m) spans.push(...m.evidence.filter((sp) => sp.turn_id === `t${turnNo}`));
+        }
+      }
+    }
+    return spans;
+  };
 
   return (
     <section aria-label="Teach panel" className="flex flex-col gap-3 rounded-lg border border-black/10 p-4 dark:border-white/15">
@@ -59,13 +81,14 @@ export function TeachPanel() {
         onSubmit={(e) => { e.preventDefault(); if (!canSend) return; const t = text; setText(""); void actions.teach(t); }}
       >
         <textarea
+          id="teach-input"
           className="w-full rounded-md border border-black/10 p-2 text-sm disabled:opacity-50 dark:border-white/15 dark:bg-zinc-900"
           rows={2}
           value={text}
           maxLength={2000}
           onChange={(e) => setText(e.target.value)}
           placeholder="Explain recursion in your own words…"
-          disabled={anyPending || state.phase !== "teaching"}
+          disabled={anyPending || (state.phase !== "teaching" && state.phase !== "reteaching")}
         />
         <button type="submit" disabled={!canSend} className="mt-1 rounded-full bg-zinc-900 px-4 py-1 text-sm text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900">
           {anyPending ? "Evaluating…" : "Send"}
