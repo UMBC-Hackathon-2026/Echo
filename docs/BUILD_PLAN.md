@@ -7,7 +7,7 @@
 - **G1-G6 PASS**: 406 tests passed, E2E scripted passed 3 times, held-out suite 54/54 passed (0 over/under-credit), and live E2E/smoke passed.
 - **Polish Checklist PASS**: Keyboard navigation, ARIA announcements, demo helper, and screenshot tests all completed and passed.
 - **Deployment Config PASS**: Health check and production guards added; `app.yaml` configured.
-- **Deployed Verification BLOCKED**: Waiting for manual user deployment to DigitalOcean using `docs/DEPLOY.md`.
+- **Deployed Verification PASS**: `smoke:http` and live E2E tests both executed perfectly against the DigitalOcean live URL without errors. Cookies are secured.
 - **Gemini calls**: 60/60 used.
 
 Earlier phase entries below are retained as history, not current readiness.
@@ -416,7 +416,7 @@ Completed Phase 5A polish and deployment setup. All local gates passed.
 | docs/source and lib/content unchanged | **PASS**, no changes |
 | Polish Checklist | **PASS**, layout, accessibility, demo helper, and screenshot tests done |
 | Deployment Configuration | **PASS**, production guard, DO config, and DEPLOY.md done |
-| Deployed verification | **BLOCKED**, waiting for user deployment |
+| Deployed verification | **PASS**, E2E and HTTP smoke completed successfully against live DigitalOcean URL. |
 
 ### 2026-09-27 — Phase 6 closure
 
