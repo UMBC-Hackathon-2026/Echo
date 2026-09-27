@@ -2,6 +2,23 @@
 
 Date: 2026-09-27. This report covers the PDF/dynamic-rubric implementation plan, not the older numbered recursion/voice/deployment phases.
 
+## Follow-up: verification and Windows launcher fixed (2026-09-27)
+
+PR #15 was merged before this follow-up. The fixes start from updated main at `aa2c022`, on `fix/generalization-verification`.
+
+- Removed all 54 remaining lint errors and 8 warnings using shared topic/question/public DTO types and inferred callback types. No lint rules were disabled.
+- The production guard resolves the installed Next.js CLI and launches it with `process.execPath`, avoiding the Windows `npm` command shim. Spawn failures, timeouts, successful exits, or absent guard diagnostics still fail the check.
+- Restored strict Zod parsing at the evaluator boundary, with limits supporting 20 generated concepts and 40 misconception reports. The response JSON schema matches the structural bounds; real Ajv/Zod parity tests replace the earlier schema-shape-only check. Validator version is now `1.1.0`.
+- Fixed the reproduced dynamic-review crash and missing question text. Generated questions map to public prompts, expected answers map to review text, and generated grading guidance is displayed without inventing per-criterion scores. Frozen question review remains supported.
+- Public topic DTOs now explicitly expose labels/public questions instead of spreading private rubric definitions and examples. Sessions reject pending, processing, failed, or missing-rubric topics.
+- Added non-recursion database coverage for teaching, assessment, review, reassessment and comparison; the new tests clean up their own topic/session data. Corrected a raw-output fixture that incorrectly supplied already-verified evidence offsets.
+
+Verification: **full `npm run verify` PASS**, including clean lint, TypeScript, **437 tests across 23 files**, content checks, secret scan, production build, bundle scan, and all three production startup guard checks. A staged secret scan also included the new files. No live Gemini calls or database migrations were needed.
+
+This resolves the lint/launcher errors and the dynamic question/review incompatibility recorded below. Remaining architectural work is unchanged: status polling/resumable uploads, shared provider quota scheduling, question-specific assessment prerequisites instead of the current all-concepts heuristic, and a safe strategy for the historical destructive migration. Live provider schema acceptance has not been tested in this follow-up.
+
+---
+
 ## Starting point
 
 - Latest PR #14 was already merged. Work started from `origin/main` at `8f994e4`, including teammate commit `9cb028d` (dynamic topics).
