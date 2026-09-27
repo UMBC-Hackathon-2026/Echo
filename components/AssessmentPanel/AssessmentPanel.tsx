@@ -158,6 +158,12 @@ export function AssessmentPanel() {
                   </pre>
                 )}
                 <p className="mt-2 italic text-zinc-700 dark:text-zinc-300">“{r.answerText}”</p>
+                {state.voice.enabled && (
+                  <div className="mt-2 flex gap-3">
+                    <button type="button" onClick={() => void actions.playVoice("question_result", r.id)} className="text-xs text-blue-600 underline dark:text-blue-400">Replay</button>
+                    {state.voice.speaking && <button type="button" onClick={() => actions.stopVoice()} className="text-xs text-red-600 underline dark:text-red-400">Stop</button>}
+                  </div>
+                )}
                 {r.nextStep ? (
                   <div className="mt-2 flex flex-col items-start gap-2">
                     <p className="text-xs text-amber-700 dark:text-amber-400">Next step: {r.nextStep}</p>

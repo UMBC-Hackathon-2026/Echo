@@ -42,6 +42,12 @@ services:
       - key: NODE_ENV
         scope: RUN_TIME
         value: production
+      - key: ELEVENLABS_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: ELEVENLABS_VOICE_ID
+        scope: RUN_TIME
+        type: SECRET
       - key: NEXT_PUBLIC_DEMO_HELPER
         scope: BUILD_TIME
         value: "false"

@@ -1,7 +1,6 @@
 # Deploy the core app to DigitalOcean App Platform
 
-This guide stops before creating a billable resource. It deploys the typed core
-only; Phase 5B voice variables and services are intentionally absent.
+This guide stops before creating a billable resource. It deploys the core and Phase 5B voice services.
 
 ## Before opening DigitalOcean
 
@@ -43,6 +42,8 @@ and the committed YAML fields in the
    | `GEMINI_API_KEY` | Existing key | Run time | Yes |
    | `GEMINI_MODEL` | `gemini-3.1-flash-lite` (or the currently verified model) | Run time | No |
    | `DATABASE_URL` | Existing Tiger production URL | Run time | Yes |
+   | `ELEVENLABS_API_KEY` | Existing key | Run time | Yes |
+   | `ELEVENLABS_VOICE_ID` | Existing ID | Run time | Yes |
    | `NODE_ENV` | `production` | Run time | No |
    | `NEXT_PUBLIC_DEMO_HELPER` | `false` | Build time | No |
 
