@@ -1,3 +1,5 @@
+import { DocumentContentError } from "@/lib/topics/errors";
+import { CONTENT_FAILURE, UNREADABLE_PDFS } from "@/lib/topics/upload-policy";
 import { describe, expect, it, vi } from "vitest";
 import { DynamicRubricSchema } from "@/lib/contracts/dynamic-rubric";
 import { createTopic, type TopicCreationDependencies } from "@/lib/topics/create";
@@ -109,4 +111,29 @@ describe("upload rate limits", () => {
     expect(admit("another", 300_000)).toBe(86100);
     expect(admit("a", 86_400_000)).toBe(0);
   });
+});
+
+
+it.each([
+  ["unreadable_pdf", UNREADABLE_PDFS],
+  ["insufficient_material", CONTENT_FAILURE],
+] as const)("returns a distinct 422 for %s", async (code, message) => {
+  const deps = dependencies(); deps.extract.mockRejectedValue(new DocumentContentError(code));
+  const response = await createTopic(request(), deps);
+  expect(response.status).toBe(422);
+  expect(await response.json()).toEqual({ error: message });
+  expect(deps.ready).not.toHaveBeenCalled();
+  expect(deps.failed).toHaveBeenCalledWith("topic-id");
+});
+
+it.each([400, 429, 503])("never calls provider %s a content failure or logs its payload", async status => {
+  const deps = dependencies(); deps.extract.mockRejectedValue(Object.assign(new Error("private-key-and-document"), { status }));
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const response = await createTopic(request(), deps);
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: EXTRACTION_FAILURE });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("private-key-and-document");
+    expect(log).toHaveBeenCalledWith("topic_creation_failed", { stage: "extract", code: "operational_failure", providerStatus: status });
+  } finally { log.mockRestore(); }
 });
