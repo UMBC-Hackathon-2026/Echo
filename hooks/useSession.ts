@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, createElement, useContext, useReducer, useEffect, useRef, type ReactNode } from "react";
-import { asApiError, newIdempotencyKey, api } from "@/lib/client/api";
+import { apiErrorMessage, asApiError, newIdempotencyKey, api, type ApiError } from "@/lib/client/api";
 import type { ConceptId, RecordDTO, SessionDTO, ComparisonRowDTO } from "@/lib/contracts";
 
 export interface SessionState extends Omit<SessionDTO, "attempts"> {
@@ -14,7 +14,7 @@ export interface SessionState extends Omit<SessionDTO, "attempts"> {
   comparison?: ComparisonRowDTO[];
   pending: { teach?: boolean; attempt?: boolean; complete?: boolean };
   voice: { enabled: boolean; speaking: boolean; listening: boolean };
-  errors: Array<{ kind: "llm" | "network" | "conflict"; message: string }>;
+  errors: Array<{ kind: "network" | "conflict" | "rate_limit" | "request"; message: string }>;
 }
 
 export function emptyRecord(): RecordDTO {
@@ -55,7 +55,7 @@ function reducer(state: SessionState, action: Action): SessionState {
       return {
         ...state, sessionId: dto.sessionId, topic: dto.topic, phase: dto.phase, revision: dto.revision, cycle: dto.cycle,
         messages: dto.messages, record: dto.record, recordHistory, attempts: dto.attempts,
-        activeAttemptId: active?.id, revealIndex, pending: {},
+        activeAttemptId: active?.id, revealIndex, comparison: dto.comparison, pending: {},
       };
     }
     case "PENDING":
@@ -119,7 +119,10 @@ export function SessionProvider({ sessionId, children }: { sessionId: string; ch
     if (state.phase === "comparing" && !state.comparison) {
       api.getComparison(state.sessionId)
         .then((comp) => dispatch({ type: "SET_COMPARISON", payload: comp }))
-        .catch(() => {});
+        .catch((cause: unknown) => {
+          const error = asApiError(cause);
+          dispatch({ type: "ERROR", payload: toSessionError(error, "Could not load the comparison.") });
+        });
     }
   }, [state.phase, state.comparison, state.sessionId]);
 
@@ -135,10 +138,15 @@ export function SessionProvider({ sessionId, children }: { sessionId: string; ch
     } catch (e) {
       const err = asApiError(e);
       if (err.status === 409) {
-        try { dispatch({ type: "HYDRATED", payload: await api.getSession(state.sessionId) }); } catch { /* ignore */ }
-        dispatch({ type: "ERROR", payload: { kind: "conflict", message: "State changed — resynced." } });
+        try {
+          dispatch({ type: "HYDRATED", payload: await api.getSession(state.sessionId) });
+        } catch (syncCause: unknown) {
+          dispatch({ type: "ERROR", payload: toSessionError(asApiError(syncCause), "State changed and the latest state could not be loaded.") });
+          return;
+        }
+        dispatch({ type: "ERROR", payload: { kind: "conflict", message: "This session changed in another request. The latest state has been loaded." } });
       } else {
-        dispatch({ type: "ERROR", payload: { kind: err.status === 0 ? "network" : "llm", message: err.error ?? "error" } });
+        dispatch({ type: "ERROR", payload: toSessionError(err) });
       }
     }
   };
@@ -146,7 +154,7 @@ export function SessionProvider({ sessionId, children }: { sessionId: string; ch
   const actions: SessionActions = {
     hydrate: () => run("teach", () => api.getSession(state.sessionId)),
     hydrateFrom: (dto) => dispatch({ type: "HYDRATED", payload: dto }),
-    teach: (text) => run("teach", () => api.submitTeaching(state.sessionId, { text, expectedRevision: state.revision, idempotencyKey: newIdempotencyKey() })),
+    teach: (text) => run("teach", () => api.submitTeaching(state.sessionId, { text, inputMode: "typed", expectedRevision: state.revision, idempotencyKey: newIdempotencyKey() })),
     retry: (messageId) => run("teach", () => api.retry(state.sessionId, messageId, { expectedRevision: state.revision })),
     assess: () => run("attempt", () => api.createAttempt(state.sessionId, { expectedRevision: state.revision, idempotencyKey: newIdempotencyKey() })),
     complete: (attemptId) => run("complete", () => api.complete(attemptId, { sessionId: state.sessionId, expectedRevision: state.revision, idempotencyKey: newIdempotencyKey() })),
@@ -171,9 +179,7 @@ export function SessionProvider({ sessionId, children }: { sessionId: string; ch
       }
       dispatch({ type: "SET_SPEAKING", payload: true });
       try {
-        const res = await fetch("/api/voice/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source, id }) });
-        if (!res.ok) throw new Error("Voice failed");
-        const blob = await res.blob();
+        const blob = await api.synthesizeSpeech(source, id);
         const audio = new Audio(URL.createObjectURL(blob));
         audioRef.current = audio;
         audio.onended = () => dispatch({ type: "SET_SPEAKING", payload: false });
@@ -182,7 +188,9 @@ export function SessionProvider({ sessionId, children }: { sessionId: string; ch
       } catch (e) {
         dispatch({ type: "SET_SPEAKING", payload: false });
         if (e instanceof Error && e.name !== "NotAllowedError") {
-          dispatch({ type: "ERROR", payload: { kind: "network", message: "Voice synthesis failed" } });
+          dispatch({ type: "ERROR", payload: toSessionError(asApiError(e), "Voice synthesis failed.") });
+        } else if (!(e instanceof Error)) {
+          dispatch({ type: "ERROR", payload: toSessionError(asApiError(e), "Voice synthesis failed.") });
         }
       }
     },
@@ -224,4 +232,15 @@ export function useSession(): Ctx {
   const ctx = useContext(SessionContext);
   if (!ctx) throw new Error("useSession must be used within a SessionProvider");
   return ctx;
+}
+
+function toSessionError(error: ApiError, fallback?: string): SessionState["errors"][number] {
+  const kind = error.status === 0
+    ? "network"
+    : error.status === 409
+      ? "conflict"
+      : error.status === 429
+        ? "rate_limit"
+        : "request";
+  return { kind, message: apiErrorMessage(error, fallback) };
 }

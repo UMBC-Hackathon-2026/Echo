@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useSession } from "@/hooks/useSession";
-import type { Span, ConceptId } from "@/lib/contracts";
+import type { Span } from "@/lib/contracts";
 
 const DEMO_HELPER = process.env.NEXT_PUBLIC_DEMO_HELPER === "true";
 const DEMO_TEXT = {
@@ -40,6 +40,10 @@ export function TeachPanel() {
   const { state, actions } = useSession();
   const [text, setText] = useState("");
   const { record, selectedConceptId, selectedQuestionId, attempts, activeAttemptId } = state;
+  const topicName = state.topic.name.trim() || "this topic";
+  const isRecursionDemo = ["recursive_call", "base_case"].every((id) =>
+    state.topic.rubricData.concepts.some((concept) => concept.id === id),
+  );
   const anyPending = !!state.pending.teach || state.messages.some((m) => m.role === "student" && m.evalStatus === "pending");
   const canSend = !anyPending && text.trim().length > 0 && (state.phase === "teaching" || state.phase === "reteaching");
   const demoText = state.phase === "reteaching" ? DEMO_TEXT.reteaching : DEMO_TEXT.teaching;
@@ -52,13 +56,13 @@ export function TeachPanel() {
   const spansForTurn = (turnNo: number): Span[] => {
     const spans: Span[] = [];
     if (selectedConceptId) {
-      spans.push(...record.concepts[selectedConceptId].evidence.filter((sp) => sp.turn_id === `t${turnNo}`));
+      spans.push(...(record.concepts[selectedConceptId]?.evidence ?? []).filter((sp) => sp.turn_id === `t${turnNo}`));
     }
     if (selectedQuestionId && activeAttempt) {
       const pinned = activeAttempt.pinnedRecord;
       if (pinned) {
         for (const cid of blockingConcepts) {
-          spans.push(...pinned.concepts[cid as ConceptId].evidence.filter((sp) => sp.turn_id === `t${turnNo}`));
+          spans.push(...(pinned.concepts[cid]?.evidence ?? []).filter((sp) => sp.turn_id === `t${turnNo}`));
         }
         for (const mid of blockingMisconceptions) {
           const m = pinned.misconceptions[mid];
@@ -71,9 +75,9 @@ export function TeachPanel() {
 
   return (
     <section aria-label="Teach panel" className="panel-card teach-panel">
-      <div className="panel-heading"><span>1</span><div><h2>Teach</h2><p>Explain recursion in your own words.</p></div></div>
+      <div className="panel-heading"><span>1</span><div><h2>Teach</h2><p>Explain {topicName} in your own words.</p></div></div>
       <ol className="transcript" aria-label="Teaching conversation">
-        {state.messages.length === 0 && <li className="text-sm text-zinc-500">Start teaching your learner about recursion.</li>}
+        {state.messages.length === 0 && <li className="text-sm text-zinc-500">Start teaching your learner about {topicName}.</li>}
         {state.messages.map((m) => {
           const spans = spansForTurn(m.turnNo);
           return (
@@ -107,14 +111,14 @@ export function TeachPanel() {
           value={text}
           maxLength={2000}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Explain recursion in your own words…"
+          placeholder={`Explain ${topicName} in your own words…`}
           disabled={anyPending || (state.phase !== "teaching" && state.phase !== "reteaching")}
         />
         <div className="teach-actions">
           <button type="submit" disabled={!canSend} className="primary-button">
             {anyPending ? "Evaluating…" : "Send explanation"}
           </button>
-          {DEMO_HELPER && (state.phase === "teaching" || state.phase === "reteaching") && (
+          {DEMO_HELPER && isRecursionDemo && (state.phase === "teaching" || state.phase === "reteaching") && (
             <button
               type="button"
               className="demo-helper"
