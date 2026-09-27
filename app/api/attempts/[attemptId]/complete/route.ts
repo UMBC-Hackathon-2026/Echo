@@ -6,5 +6,5 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest, ctx: { params: Promise<{ attemptId: string }> }): Promise<Response> {
   const { attemptId } = await ctx.params;
-  return handlePostComplete(request, attemptId, defaultService());
+  return handlePostComplete(request, attemptId, await defaultService());
 }

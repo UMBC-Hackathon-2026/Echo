@@ -6,5 +6,5 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }): Promise<Response> {
   const { id } = await ctx.params;
-  return handlePostMessages(request, id, defaultService());
+  return handlePostMessages(request, id, await defaultService());
 }

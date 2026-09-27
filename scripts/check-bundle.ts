@@ -10,7 +10,12 @@ import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 
 const STATIC_DIR = join(process.cwd(), ".next", "static");
+const SERVER_DIR = join(process.cwd(), ".next", "server");
 const TEXT_EXTS = new Set([".js", ".mjs", ".css", ".html", ".json", ".map", ".txt"]);
+
+// The scripted E2E evaluator must never ship — not to the client, and not even
+// to the server build (it is behind a guarded, dead-code-eliminated import).
+const SCRIPTED_SENTINEL = "SCRIPTED_EVALUATOR_SENTINEL_do_not_ship";
 
 // Distinctive strings taken verbatim from server-only content + the dev sentinel.
 const FORBIDDEN: Array<{ label: string; needle: string }> = [
@@ -20,6 +25,7 @@ const FORBIDDEN: Array<{ label: string; needle: string }> = [
   { label: "secret key name", needle: "GEMINI" },
   { label: "secret key name", needle: "ELEVENLABS" },
   { label: "dev mock sentinel", needle: "DEV_MOCK_SENTINEL_do_not_ship" },
+  { label: "scripted evaluator sentinel", needle: SCRIPTED_SENTINEL },
 ];
 
 function walk(dir: string): string[] {
@@ -46,10 +52,23 @@ for (const file of files) {
   }
 }
 
+// The server build legitimately holds secret names and answer keys, so only the
+// scripted-evaluator sentinel is forbidden there — proving the guarded import
+// never bundled it.
+let serverFiles: string[] = [];
+if (existsSync(SERVER_DIR)) {
+  serverFiles = walk(SERVER_DIR);
+  for (const file of serverFiles) {
+    if (readFileSync(file, "utf8").includes(SCRIPTED_SENTINEL)) {
+      hits.push(`scripted evaluator sentinel "${SCRIPTED_SENTINEL}" found in ${relative(process.cwd(), file)}`);
+    }
+  }
+}
+
 if (hits.length > 0) {
-  console.error(`check:bundle FAILED — ${hits.length} leak(s) in client bundle:`);
+  console.error(`check:bundle FAILED — ${hits.length} leak(s) in production build:`);
   for (const h of hits) console.error(`  - ${h}`);
   process.exit(1);
 }
 
-console.log(`check:bundle OK — scanned ${files.length} client files; no answer keys, secrets, or dev mocks.`);
+console.log(`check:bundle OK — scanned ${files.length} client + ${serverFiles.length} server files; no answer keys, secrets, dev mocks, or scripted evaluator.`);

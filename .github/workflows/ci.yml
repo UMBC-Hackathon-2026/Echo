@@ -44,3 +44,7 @@ jobs:
         run: npm run db:migrate
       - name: Verify (lint, typecheck, test, check:content, check:secrets, build, check:bundle)
         run: npm run verify
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Deterministic E2E (scripted evaluator, no live Gemini)
+        run: npm run e2e:scripted

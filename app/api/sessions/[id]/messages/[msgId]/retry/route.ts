@@ -6,5 +6,5 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string; msgId: string }> }): Promise<Response> {
   const { id, msgId } = await ctx.params;
-  return handlePostRetry(request, id, msgId, defaultService());
+  return handlePostRetry(request, id, msgId, await defaultService());
 }
