@@ -4,6 +4,12 @@ import { useState, type ReactNode } from "react";
 import { useSession } from "@/hooks/useSession";
 import type { Span, ConceptId } from "@/lib/contracts";
 
+const DEMO_HELPER = process.env.NEXT_PUBLIC_DEMO_HELPER === "true";
+const DEMO_TEXT = {
+  teaching: "A function is recursive when it calls itself, and each call works on a smaller n.",
+  reteaching: "It stops when n reaches 0: at n === 0 it returns without calling itself again.",
+} as const;
+
 const EVAL_LABEL: Record<string, string> = {
   pending: "Evaluating…",
   evaluated: "Evaluated",
@@ -36,6 +42,7 @@ export function TeachPanel() {
   const { record, selectedConceptId, selectedQuestionId, attempts, activeAttemptId } = state;
   const anyPending = !!state.pending.teach || state.messages.some((m) => m.role === "student" && m.evalStatus === "pending");
   const canSend = !anyPending && text.trim().length > 0 && (state.phase === "teaching" || state.phase === "reteaching");
+  const demoText = state.phase === "reteaching" ? DEMO_TEXT.reteaching : DEMO_TEXT.teaching;
 
   const activeAttempt = attempts.find((a) => a.id === activeAttemptId);
   const selectedResult = activeAttempt?.results.find((r) => r.questionId === selectedQuestionId);
@@ -63,19 +70,19 @@ export function TeachPanel() {
   };
 
   return (
-    <section aria-label="Teach panel" className="flex flex-col gap-3 rounded-lg border border-black/10 p-4 dark:border-white/15">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Teach</h2>
-      <ol className="flex flex-1 flex-col gap-2 overflow-auto">
+    <section aria-label="Teach panel" className="panel-card teach-panel">
+      <div className="panel-heading"><span>1</span><div><h2>Teach</h2><p>Explain recursion in your own words.</p></div></div>
+      <ol className="transcript" aria-label="Teaching conversation">
         {state.messages.length === 0 && <li className="text-sm text-zinc-500">Start teaching your learner about recursion.</li>}
         {state.messages.map((m) => {
           const spans = spansForTurn(m.turnNo);
           return (
-            <li key={m.id} className={m.role === "student" ? "rounded-md bg-zinc-100 p-2 text-sm dark:bg-zinc-800" : "rounded-md border border-black/10 p-2 text-sm italic dark:border-white/15"}>
+            <li key={m.id} className={m.role === "student" ? "message message-student" : "message message-learner"}>
               <span className="mr-2 font-medium">{m.role === "student" ? "You" : "Learner"}</span>
-              {EVAL_LABEL[m.evalStatus] && <span className={`mr-2 text-xs ${m.evalStatus === "failed" ? "text-red-600" : "text-zinc-500"}`}>[{EVAL_LABEL[m.evalStatus]}]</span>}
+              {EVAL_LABEL[m.evalStatus] && <span className={`status-chip ${m.evalStatus === "failed" ? "status-failed" : ""}`}>{EVAL_LABEL[m.evalStatus]}</span>}
               {highlight(m.content, spans)}
               {m.role === "student" && m.evalStatus === "failed" && (
-                <button type="button" onClick={() => void actions.retry(m.id)} className="ml-2 rounded-full border border-red-300 px-2 py-0.5 text-xs text-red-700 dark:border-red-800 dark:text-red-400">
+                <button type="button" onClick={() => void actions.retry(m.id)} className="secondary-button ml-2">
                   Retry
                 </button>
               )}
@@ -89,7 +96,7 @@ export function TeachPanel() {
       >
         <textarea
           id="teach-input"
-          className="w-full rounded-md border border-black/10 p-2 text-sm disabled:opacity-50 dark:border-white/15 dark:bg-zinc-900"
+          className="teach-input"
           rows={2}
           value={text}
           maxLength={2000}
@@ -97,9 +104,20 @@ export function TeachPanel() {
           placeholder="Explain recursion in your own words…"
           disabled={anyPending || (state.phase !== "teaching" && state.phase !== "reteaching")}
         />
-        <button type="submit" disabled={!canSend} className="mt-1 rounded-full bg-zinc-900 px-4 py-1 text-sm text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900">
-          {anyPending ? "Evaluating…" : "Send"}
-        </button>
+        <div className="teach-actions">
+          <button type="submit" disabled={!canSend} className="primary-button">
+            {anyPending ? "Evaluating…" : "Send explanation"}
+          </button>
+          {DEMO_HELPER && (state.phase === "teaching" || state.phase === "reteaching") && (
+            <button
+              type="button"
+              className="demo-helper"
+              onClick={() => setText(demoText)}
+            >
+              <span aria-hidden>✦</span> Paste demo explanation
+            </button>
+          )}
+        </div>
       </form>
     </section>
   );

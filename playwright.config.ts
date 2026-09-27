@@ -8,6 +8,8 @@ import { defineConfig, devices } from '@playwright/test';
  * The scripted grep tag keeps the two suites separate.
  */
 const evaluatorMode = process.env.E2E_EVALUATOR === 'scripted' ? 'scripted' : 'live';
+const externalBaseURL = evaluatorMode === 'live' ? process.env.BASE_URL : undefined;
+const baseURL = externalBaseURL ?? 'http://localhost:3000';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -17,13 +19,13 @@ export default defineConfig({
   workers: 1,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL,
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
   },
   timeout: 60000,
   grep: evaluatorMode === 'scripted' ? /@scripted/ : /@live/,
-  webServer: {
+  webServer: externalBaseURL ? undefined : {
     command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: false,
@@ -32,6 +34,7 @@ export default defineConfig({
       // Never "production": the scripted evaluator is honored only in dev.
       E2E_EVALUATOR: process.env.E2E_EVALUATOR ?? '',
       NEXT_PUBLIC_USE_MOCKS: 'false',
+      NEXT_PUBLIC_DEMO_HELPER: process.env.NEXT_PUBLIC_DEMO_HELPER ?? 'false',
     },
   },
   projects: [
