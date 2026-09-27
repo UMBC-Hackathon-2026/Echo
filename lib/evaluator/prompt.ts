@@ -1,6 +1,7 @@
 import type { TeachingTopic } from "@/lib/contracts/topic";
 import "server-only";
 import { ConceptState } from "@/lib/contracts";
+import { geminiCompatibleJsonSchema } from "@/lib/gemini/json-schema";
 import type { StudentTurn } from "./provenance";
 
 /**
@@ -76,7 +77,7 @@ const evidenceRef = {
 export function buildResponseSchema(topic: TeachingTopic) {
   const conceptIds = topic.rubricData.concepts.map((c) => c.id);
   
-  return {
+  return geminiCompatibleJsonSchema({
     type: "object",
     additionalProperties: false,
     properties: {
@@ -111,5 +112,5 @@ export function buildResponseSchema(topic: TeachingTopic) {
       },
     },
     required: ["concepts", "misconception_reports"],
-  };
+  });
 }
