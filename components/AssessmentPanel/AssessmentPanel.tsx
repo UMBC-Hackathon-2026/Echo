@@ -44,7 +44,11 @@ export function AssessmentPanel() {
           .filter((misconception) => misconception.origin === "seeded");
         const beliefsResolved = seededBeliefs.every((misconception) => misconception.status === "resolved");
         return (
-          <div className="flex flex-col gap-4">
+          <div className="comparison-drawer" role="region" aria-label="Before and after comparison">
+            <header className="comparison-heading">
+              <div><p className="eyebrow">Comparison ready</p><h3>Before &amp; after reteaching</h3></div>
+              <span>{state.comparison.length} {state.comparison.length === 1 ? "question" : "questions"}</span>
+            </header>
             <p className="comparison-note">
               Forms designed to be comparable, pending learner testing. The score reflects the explanation, not the student&apos;s own mastery.
             </p>
@@ -131,7 +135,7 @@ export function AssessmentPanel() {
           disabled={!canAssess}
           className="primary-button self-start"
         >
-          {state.pending.attempt ? "Assessing…" : "Assess my learner"}
+          {state.pending.attempt && <span aria-hidden className="button-spinner" />}{state.pending.attempt ? "Assessing…" : "Assess my learner"}
         </button>
       )}
       {state.phase !== "comparing" && (!active || active.status === "complete") && turnBlocked && <p className="text-xs text-amber-600">Resolve the pending or failed explanation first.</p>}
@@ -232,11 +236,15 @@ export function AssessmentPanel() {
                 )}
 
                 {review && (
-                  <details className="mt-2 text-xs text-zinc-500">
+                  <details className="review-card">
                     <summary className="cursor-pointer">Answer key &amp; criteria</summary>
-                    <p className="mt-1">{review.answerKey}</p>
-                    <ul className="mt-1 list-disc pl-4">
+                    <p className="review-answer">{review.answerKey}</p>
+                    {review.guidance && review.guidance.length > 0 && <p className="review-label">Guidance</p>}
+                    <ul className="review-list">
                       {review.guidance?.map((text, index) => <li key={`guidance-${index}`}>{text}</li>)}
+                    </ul>
+                    <p className="review-label">Criteria</p>
+                    <ul className="review-list">
                       {review.criteria.map((c) => (
                         <li key={c.id}>{c.text} ({c.points} pt) — {r.earnedCriteria.includes(c.id) ? "earned" : "not earned"}</li>
                       ))}
@@ -260,7 +268,7 @@ export function AssessmentPanel() {
                 disabled={!!state.pending.complete}
                 className="primary-button"
               >
-                {state.pending.complete ? "Completing…" : "Complete attempt"}
+                {state.pending.complete && <span aria-hidden className="button-spinner" />}{state.pending.complete ? "Completing…" : "Complete attempt"}
               </button>
             </li>
           )}

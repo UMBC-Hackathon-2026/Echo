@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const SCREENSHOTS = 'reports/screenshots';
-const CYCLE_ONE = 'A function is recursive when it calls itself, and each call works on a smaller n.';
+const CYCLE_ONE = 'A function is recursive when it calls itself, and each call works on a smaller n.\n```ts\nreturn recurse(n - 1);\n```';
 const CYCLE_TWO = 'It stops when n reaches 0: at n === 0 it returns without calling itself again.';
 
 async function tabTo(page: Page, target: Locator) {
@@ -69,13 +69,17 @@ test('keyboard-only demo path and phase screenshots @scripted', async ({ page })
   mkdirSync(SCREENSHOTS, { recursive: true });
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto('/');
+  await expect(page.getByTestId('pdf-drop-zone')).toBeVisible();
+  await capture(page, '00-home.png');
   await activate(page, page.getByRole('button', { name: 'Start teaching recursion' }));
   await expect(page.locator('textarea#teach-input')).toBeEnabled();
+  await expect(page.getByLabel('Loading session workspace')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Paste demo explanation' })).toBeVisible();
   await assertDesktopPanels(page);
   await capture(page, '01-teaching.png');
 
   await sendFromKeyboard(page, CYCLE_ONE);
+  await expect(page.locator('.message-code code')).toContainText('return recurse(n - 1);');
   await beginAssessment(page);
   await capture(page, '02-assessing.png');
   await revealAll(page);
@@ -99,6 +103,7 @@ test('keyboard-only demo path and phase screenshots @scripted', async ({ page })
   await revealAll(page);
   await completeAttempt(page);
   await expect(page.getByTestId('compare-P1')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Before and after comparison' })).toBeVisible();
   await capture(page, '06-comparing.png');
 
   await page.setViewportSize({ width: 1920, height: 1080 });

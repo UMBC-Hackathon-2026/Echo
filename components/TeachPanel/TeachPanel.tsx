@@ -17,23 +17,48 @@ const EVAL_LABEL: Record<string, string> = {
   not_applicable: "",
 };
 
-function highlight(content: string, spans: Span[]): ReactNode {
+function highlight(content: string, spans: Span[], start = 0, end = content.length): ReactNode {
+  const segment = content.slice(start, end);
   const valid = spans
-    .filter((s) => s.start >= 0 && s.end <= content.length && s.start < s.end)
+    .filter((s) => s.start >= start && s.end <= end && s.start < s.end)
+    .map((s) => ({ ...s, start: s.start - start, end: s.end - start }))
     .sort((a, b) => a.start - b.start);
-  if (!valid.length) return content;
+  if (!valid.length) return segment;
   const parts: ReactNode[] = [];
   let cursor = 0;
   valid.forEach((s, i) => {
     if (s.start < cursor) return; // skip an overlapping span
-    if (s.start > cursor) parts.push(content.slice(cursor, s.start));
+    if (s.start > cursor) parts.push(segment.slice(cursor, s.start));
     parts.push(
-      <mark key={i} className="rounded bg-yellow-200 px-0.5 dark:bg-yellow-700/60">{content.slice(s.start, s.end)}</mark>,
+      <mark key={i} className="rounded bg-yellow-200 px-0.5 dark:bg-yellow-700/60">{segment.slice(s.start, s.end)}</mark>,
     );
     cursor = s.end;
   });
-  if (cursor < content.length) parts.push(content.slice(cursor));
+  if (cursor < segment.length) parts.push(segment.slice(cursor));
   return <>{parts}</>;
+}
+
+function renderMessageContent(content: string, spans: Span[]): ReactNode {
+  const fence = /```([^\n]*)\n([\s\S]*?)```/g;
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  while ((match = fence.exec(content)) !== null) {
+    if (match.index > cursor) {
+      parts.push(<span key={`text-${cursor}`}>{highlight(content, spans, cursor, match.index)}</span>);
+    }
+    const language = match[1].trim();
+    parts.push(
+      <pre key={`code-${match.index}`} className="message-code">
+        {language && <span>{language}</span>}
+        <code>{match[2].replace(/\n$/, "")}</code>
+      </pre>,
+    );
+    cursor = fence.lastIndex;
+  }
+  if (cursor === 0) return highlight(content, spans);
+  if (cursor < content.length) parts.push(<span key={`text-${cursor}`}>{highlight(content, spans, cursor)}</span>);
+  return parts;
 }
 
 export function TeachPanel() {
@@ -82,9 +107,15 @@ export function TeachPanel() {
           const spans = spansForTurn(m.turnNo);
           return (
             <li key={m.id} className={m.role === "student" ? "message message-student" : "message message-learner"}>
-              <span className="mr-2 font-medium">{m.role === "student" ? "You" : "Learner"}</span>
-              {EVAL_LABEL[m.evalStatus] && <span className={`status-chip ${m.evalStatus === "failed" ? "status-failed" : ""}`}>{EVAL_LABEL[m.evalStatus]}</span>}
-              {highlight(m.content, spans)}
+              <div className="message-meta">
+                <span>{m.role === "student" ? "You" : "Learner"}</span>
+                {EVAL_LABEL[m.evalStatus] && (
+                  <span className={`status-chip ${m.evalStatus === "failed" ? "status-failed" : ""}`}>
+                    {m.evalStatus === "pending" && <span aria-hidden className="status-dot" />}{EVAL_LABEL[m.evalStatus]}
+                  </span>
+                )}
+              </div>
+              <div className="message-content">{renderMessageContent(m.content, spans)}</div>
               {m.role === "student" && m.evalStatus === "failed" && (
                 <button type="button" onClick={() => void actions.retry(m.id)} className="secondary-button ml-2">
                   Retry
@@ -116,7 +147,7 @@ export function TeachPanel() {
         />
         <div className="teach-actions">
           <button type="submit" disabled={!canSend} className="primary-button">
-            {anyPending ? "Evaluating…" : "Send explanation"}
+            {anyPending && <span aria-hidden className="button-spinner" />}{anyPending ? "Evaluating…" : "Send explanation"}
           </button>
           {DEMO_HELPER && isRecursionDemo && (state.phase === "teaching" || state.phase === "reteaching") && (
             <button

@@ -5,6 +5,7 @@ import { apiErrorMessage, asApiError, newIdempotencyKey, api, type ApiError } fr
 import type { ConceptId, RecordDTO, SessionDTO, ComparisonRowDTO } from "@/lib/contracts";
 
 export interface SessionState extends Omit<SessionDTO, "attempts"> {
+  hydrated: boolean;
   recordHistory: RecordDTO[];
   attempts: SessionDTO["attempts"];
   activeAttemptId?: string;
@@ -25,7 +26,7 @@ export function emptyRecord(): RecordDTO {
 function initial(sessionId: string): SessionState {
   return {
     sessionId, topic: { id: "test", name: "Topic", rubricData: { concepts: [], misconceptions: [], questions: [] } }, phase: "teaching", revision: 0, cycle: 1, messages: [], record: emptyRecord(),
-    recordHistory: [], attempts: [], revealIndex: 0, pending: {},
+    hydrated: false, recordHistory: [], attempts: [], revealIndex: 0, pending: {},
     voice: { enabled: false, speaking: false, listening: false }, errors: [],
   };
 }
@@ -55,7 +56,7 @@ function reducer(state: SessionState, action: Action): SessionState {
       return {
         ...state, sessionId: dto.sessionId, topic: dto.topic, phase: dto.phase, revision: dto.revision, cycle: dto.cycle,
         messages: dto.messages, record: dto.record, recordHistory, attempts: dto.attempts,
-        activeAttemptId: active?.id, revealIndex, comparison: dto.comparison, pending: {},
+        activeAttemptId: active?.id, revealIndex, comparison: dto.comparison, pending: {}, hydrated: true,
       };
     }
     case "PENDING":
@@ -98,6 +99,7 @@ export interface SessionActions {
   toggleVoice(): void;
   playVoice(source: "learner_message" | "question_result", id: string): Promise<void>;
   stopVoice(): void;
+  dismissErrors(): void;
 }
 
 interface Ctx { state: SessionState; actions: SessionActions }
@@ -200,7 +202,8 @@ export function SessionProvider({ sessionId, children }: { sessionId: string; ch
         audioRef.current.src = "";
       }
       dispatch({ type: "SET_SPEAKING", payload: false });
-    }
+    },
+    dismissErrors: () => dispatch({ type: "CLEAR_ERRORS" }),
   };
 
   useEffect(() => {
