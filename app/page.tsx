@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import echoLogo from "@/public/echo-logo.png";
 import { api, apiErrorMessage, asApiError } from "@/lib/client/api";
 import { EXTRACTION_FAILURE, MAX_FILES, pdfProblem } from "@/lib/topics/upload-policy";
 
@@ -126,9 +127,15 @@ export default function Home() {
   return (
     <main className="home-shell">
       <section className="home-intro">
+        <h1 className="home-title">
+          <Image
+            src={echoLogo}
+            alt="Echo"
+            priority
+            className="home-logo"
+          />
+        </h1>
         <p className="home-kicker">Learn by teaching</p>
-        <Image src="/echo-logo.png" alt="" width={56} height={56} priority className="echo-mark" />
-        <h1>Echo</h1>
         <p>Turn your own study materials into a learner you can teach, assess, and improve.</p>
         <ol className="home-steps" aria-label="How it works">
           <li><span>1</span><div><strong>Upload</strong><small>Add trusted PDF notes or slides.</small></div></li>
